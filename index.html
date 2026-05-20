@@ -3,101 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>社内AI用 プロンプト整形＆マスキングツール</title>
+    <title>社内AI用 プロンプト整形＆高度マスキングツール</title>
     <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+            --border-color: #dcdde1;
+        }
+        * { box-sizing: border-box; }
         body {
             font-family: "Segoe UI", Meiryo, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f5f7fa;
+            background-color: var(--bg-color);
         }
         h1 {
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--accent-color);
             padding-bottom: 10px;
             font-size: 24px;
+            margin-bottom: 20px;
         }
         h2 {
-            font-size: 18px;
-            color: #34495e;
-            margin-bottom: 8px;
+            font-size: 16px;
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 12px;
+            border-left: 4px solid var(--accent-color);
+            padding-left: 8px;
         }
-        .container {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
+        .layout-grid {
+            display: table;
+            width: 100%;
+            table-layout: fixed;
+            border-collapse: separate;
+            border-spacing: 20px 0;
         }
-        @media (min-width: 768px) {
-            .config-section {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 20px;
-            }
+        .layout-col {
+            display: table-cell;
+            vertical-align: top;
         }
         .card {
-            background: #fff;
-            padding: 15px;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
         }
         textarea {
             width: 100%;
-            height: 120px;
-            padding: 10px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
+            height: 140px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
-            font-family: monospace;
+            font-family: inherit;
             font-size: 14px;
             resize: vertical;
         }
-        .btn-container {
-            text-align: center;
-            margin: 20px 0;
+        /* ルール編集テーブルのスタイル */
+        .table-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 10px;
         }
-        button {
-            background-color: #3498db;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border-color);
+            text-align: left;
+        }
+        th {
+            background-color: #f8f9fa;
+            position: sticky;
+            top: 0;
+            color: var(--primary-color);
+        }
+        .input-inline {
+            width: 100%;
+            padding: 4px 6px;
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+        }
+        /* ボタン類 */
+        .btn {
+            background-color: var(--accent-color);
             color: #fff;
             border: none;
-            padding: 12px 30px;
-            font-size: 16px;
-            font-weight: bold;
+            padding: 8px 16px;
+            font-size: 14px;
             border-radius: 4px;
             cursor: pointer;
-            transition: background-color 0.2s;
+            font-weight: bold;
         }
-        button:hover {
-            background-color: #2980b9;
+        .btn:hover { background-color: #2980b9; }
+        .btn-danger { background-color: #e74c3c; padding: 4px 8px; font-size: 12px; }
+        .btn-danger:hover { background-color: #c0392b; }
+        .btn-success { background-color: #2ecc71; }
+        .btn-success:hover { background-color: #27ae60; }
+        .btn-large {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            margin: 20px 0;
+        }
+        .file-status {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-bottom: 10px;
+            padding: 6px;
+            background: #eef2f7;
+            border-radius: 4px;
         }
         .result-box {
             background-color: #eef2f7;
-            border: 1px solid #3498db;
-            height: 200px;
+            border: 2px solid var(--accent-color);
+            height: 220px;
         }
-        .hint {
-            font-size: 12px;
-            color: #7f8c8d;
-            margin-top: 5px;
-        }
+        .hint { font-size: 12px; color: #7f8c8d; margin-top: 5px; }
     </style>
 </head>
 <body>
 
-    <h1>タスクプロンプト整形ツール (Prototype)</h1>
+    <h1>タスクプロンプト整形ツール (Advanced Version)</h1>
     
-    <div class="container">
-        <!-- 設定エリア（ルールとプロンプト） -->
-        <div class="config-section">
+    <div class="card">
+        <h2>CSV連携設定</h2>
+        <div class="file-status" id="fileStatus">CSVファイルが選択されていません。同じフォルダの「mask_rules.csv」を選択してください。</div>
+        <button class="btn" onclick="selectCsvFile()">mask_rules.csv を指定して読み込む</button>
+        <button class="btn btn-success" id="saveBtn" onclick="saveCsvFile()" disabled>CSVファイルに上書き保存</button>
+    </div>
+
+    <div class="layout-grid">
+        <div class="layout-col" style="width: 50%;">
             <div class="card">
-                <h2>1. マスキングルール設定 (CSV形式)</h2>
-                <textarea id="maskRules" placeholder="置換前,置換後">山田太郎,[社員A]
-佐藤花子,[社員B]
-xx@example.com,[メールアドレスA]
-株式会社A,[取引先X]</textarea>
-                <p class="hint">※「置換したい文字,置換後の文字」を1行ずつ入力（Excelからコピペ可能）</p>
+                <h2>1. マスキングルールの追加・編集</h2>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 45%;">置換前の文字（実名など）</th>
+                                <th style="width: 45%;">置換後の文字（マスク）</th>
+                                <th style="width: 10%;">削除</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rulesTableBody">
+                            </tbody>
+                    </table>
+                </div>
+                <button class="btn" onclick="addNewRow()">ルールの新規追加</button>
             </div>
             
             <div class="card">
@@ -111,67 +176,184 @@ xx@example.com,[メールアドレスA]
 
 【対象テキスト】
 ---</textarea>
-                <p class="hint">※ここに出力したいHTMLの要望（手順書、見えるか等）を足していきます</p>
             </div>
         </div>
 
-        <!-- 入力エリア -->
-        <div class="card">
-            <h2>3. メールの本文などを貼り付け</h2>
-            <textarea id="sourceText" style="height: 150px;" placeholder="ここに自分宛てに送ったメールの本文や、溜まったテキストを貼り付けます。"></textarea>
-        </div>
+        <div class="layout-col" style="width: 50%;">
+            <div class="card">
+                <h2>3. メールの本文などを貼り付け</h2>
+                <textarea id="sourceText" style="height: 180px;" placeholder="ここに自分宛てに送ったメールの本文を貼り付けます。"></textarea>
+            </div>
 
-        <!-- 実行ボタン -->
-        <div class="btn-container">
-            <button onclick="generatePrompt()">マスキングしてプロンプトを生成</button>
-        </div>
+            <button class="btn btn-large" onclick="generatePrompt()">マスキングしてプロンプトを生成 ▼</button>
 
-        <!-- 出力エリア -->
-        <div class="card">
-            <h2>4. 整形されたプロンプト（これをコピーして社内AIへ）</h2>
-            <textarea id="resultText" class="result-box" readonly onclick="this.select();" placeholder="ボタンを押すとここに結果が出ます。クリックで全選択できます。"></textarea>
-            <p class="hint">※個人名などがしっかりマスキングされているか確認してからAIに投げてね！</p>
+            <div class="card">
+                <h2>4. 整形されたプロンプト（クリックで全選択）</h2>
+                <textarea id="resultText" class="result-box" readonly onclick="this.select();" placeholder="変換結果がここに出力されます。"></textarea>
+                <p class="hint">※個人情報が正しく隠されているか必ず目視確認してください。</p>
+            </div>
         </div>
     </div>
 
     <script>
-        function generatePrompt() {
-            // 1. 各入力を取得
-            const rulesRaw = document.getElementById('maskRules').value;
-            const template = document.getElementById('promptTemplate').value;
-            let sourceText = document.getElementById('sourceText').value;
+        let fileHandle = null;
+        let maskRules = [
+            { before: "山田太郎", after: "[社員A]" },
+            { before: "佐藤花子", after: "[社員B]" },
+            { before: "株式会社A", after: "[取引先X]" }
+        ];
 
-            // 2. マスキングルールの解析 (CSVパース)
-            const lines = rulesRaw.split('\n');
-            const rules = [];
-            for (let line of lines) {
-                if (!line.trim()) continue;
-                // 簡易的なカンマ区切り解析（Excelからのコピペやタブ区切りにも対応できるよう、カンマかタブで分割）
-                const parts = line.split(/[,\t]/);
+        // 起動時にデフォルトルールを描画
+        window.addEventListener('DOMContentLoaded', () => {
+            renderRulesTable();
+        });
+
+        // テーブルの描画
+        function renderRulesTable() {
+            const tbody = document.getElementById('rulesTableBody');
+            tbody.innerHTML = '';
+            maskRules.forEach((rule, index) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><input type="text" class="input-inline" value="${escapeHtml(rule.before)}" onchange="updateRule(${index}, 'before', this.value)"></td>
+                    <td><input type="text" class="input-inline" value="${escapeHtml(rule.after)}" onchange="updateRule(${index}, 'after', this.value)"></td>
+                    <td><button class="btn btn-danger" onclick="deleteRule(${index})">削除</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateRule(index, key, value) {
+            maskRules[index][key] = value.trim();
+        }
+
+        function deleteRule(index) {
+            maskRules.splice(index, 1);
+            renderRulesTable();
+        }
+
+        // 新規追加時の自動提案ロジック
+        function addNewRow() {
+            // 現在の「[社員X]」形式の最大文字（A, B, C...）や数値を調べる
+            let nextSuggest = "[社員C]"; // デフォルト
+            
+            const employeeRules = maskRules.filter(r => r.after.includes("社員"));
+            if (employeeRules.length > 0) {
+                // 既存の「社員A」「社員B」などの末尾の文字を抽出して次の文字を提案
+                const lastRule = employeeRules[employeeRules.length - 1].after;
+                const match = lastRule.match(/社員([A-Z0-9亜-熙ぁ-んァ-ヶ]) /);
+                
+                // アルファベット連番の簡易自動提案 (A -> B -> C)
+                const charCode = lastRule.charCodeAt(lastRule.indexOf("社員") + 2);
+                if (charCode >= 65 && charCode < 90) { // A-Y
+                    nextSuggest = `[社員${String.fromCharCode(charCode + 1)}]`;
+                } else {
+                    nextSuggest = `[社員${employeeRules.length + 1}]`; // 数字連番をフォールバック
+                }
+            }
+
+            maskRules.push({ before: "", after: nextSuggest });
+            renderRulesTable();
+            
+            // 追加した行の「置換前」入力欄にフォーカスを当てる
+            const inputs = document.querySelectorAll('#rulesTableBody tr:last-child input');
+            if(inputs.length > 0) inputs[0].focus();
+        }
+
+        // File System Access API を使ったファイル読み込み
+        async function selectCsvFile() {
+            try {
+                [fileHandle] = await window.showOpenFilePicker({
+                    types: [{
+                        description: 'CSV Files',
+                        accept: { 'text/csv': ['.csv'] }
+                    }],
+                    excludeAcceptAllOption: true,
+                    multiple: false
+                });
+
+                const file = await fileHandle.getFile();
+                const text = await file.text();
+                parseCsv(text);
+                
+                document.getElementById('fileStatus').innerText = `連携中: ${file.name} (読み込み完了)`;
+                document.getElementById('saveBtn').disabled = false;
+                renderRulesTable();
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    alert('ファイルの読み込みに失敗しました: ' + err.message);
+                }
+            }
+        }
+
+        // CSVのパース
+        function parseCsv(text) {
+            const lines = text.split('\n');
+            const importedRules = [];
+            lines.forEach(line => {
+                if (!line.trim()) return;
+                const parts = line.split(',');
                 if (parts.length >= 2) {
-                    rules.push({
+                    importedRules.push({
                         before: parts[0].trim(),
                         after: parts[1].trim()
                     });
                 }
+            });
+            if(importedRules.length > 0) {
+                maskRules = importedRules;
             }
+        }
 
-            // 3. マスキングの実行（文字数の長い順にソートして、誤置換を防ぐ）
-            rules.sort((a, b) => b.before.length - a.before.length);
+        // File System Access API を使ったファイル上書き保存
+        async function saveCsvFile() {
+            if (!fileHandle) {
+                alert('ファイルが選択されていません。');
+                return;
+            }
+            try {
+                // CSVテキストの組み立て
+                const csvContent = maskRules
+                    .filter(r => r.before !== "")
+                    .map(r => `${r.before},${r.after}`)
+                    .join('\n');
+
+                const writable = await fileHandle.createWritable();
+                await writable.write(csvContent);
+                await writable.close();
+                alert('mask_rules.csv に変更を上書き保存しました！');
+            } catch (err) {
+                alert('保存に失敗しました。アクセス権限を確認してください: ' + err.message);
+            }
+        }
+
+        // マスキング＆プロンプト生成
+        function generatePrompt() {
+            const template = document.getElementById('promptTemplate').value;
+            let sourceText = document.getElementById('sourceText').value;
+
+            // 長い文字から順にソート（誤置換防止）
+            const sortedRules = [...maskRules].sort((a, b) => b.before.length - a.before.length);
             
-            for (let rule of rules) {
-                if (rule.before === "") continue;
-                // 特殊文字をエスケープして正規表現を作成（グローバル・大文字小文字区別なし）
+            sortedRules.forEach(rule => {
+                if (!rule.before) return;
                 const escapedBefore = rule.before.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                 const regex = new RegExp(escapedBefore, 'gi');
                 sourceText = sourceText.replace(regex, rule.after);
-            }
+            } );
 
-            // 4. プロンプトテンプレートと合体
             const finalPrompt = template + "\n" + sourceText + "\n---";
-
-            // 5. 結果を出力
             document.getElementById('resultText').value = finalPrompt;
+        }
+
+        // HTMLエスケープ用ユーティリティ
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
         }
     </script>
 </body>
