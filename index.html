@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>社内AI用 プロンプト整形＆ルール自動保存ツール</title>
+    <title>社内AI用 タスク整形＆超高度マスキングツール</title>
     <style>
         :root {
             --primary-color: #2c3e50;
             --accent-color: #3498db;
+            --success-color: #2ecc71;
+            --return-color: #9b59b6;
             --bg-color: #f5f7fa;
             --card-bg: #ffffff;
             --border-color: #dcdde1;
@@ -17,7 +19,7 @@
             font-family: "Segoe UI", Meiryo, sans-serif;
             line-height: 1.6;
             color: #333;
-            max-width: 1200px;
+            max-width: 1300px;
             margin: 0 auto;
             padding: 20px;
             background-color: var(--bg-color);
@@ -37,16 +39,35 @@
             border-left: 4px solid var(--accent-color);
             padding-left: 8px;
         }
+        .guide-box {
+            background: #ebf5fb;
+            border: 1px solid var(--accent-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+        .guide-steps {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .step-card {
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            flex: 1;
+            border: 1px solid #bdc3c7;
+            text-align: center;
+        }
         .layout-grid {
-            display: table;
-            width: 100%;
-            table-layout: fixed;
-            border-collapse: separate;
-            border-spacing: 20px 0;
+            display: flex;
+            gap: 20px;
         }
         .layout-col {
-            display: table-cell;
-            vertical-align: top;
+            flex: 1;
+            min-width: 0;
         }
         .card {
             background: var(--card-bg);
@@ -57,7 +78,7 @@
         }
         textarea {
             width: 100%;
-            height: 140px;
+            height: 150px;
             padding: 12px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
@@ -66,34 +87,18 @@
             resize: vertical;
         }
         .table-container {
-            max-height: 250px;
+            max-height: 200px;
             overflow-y: auto;
             border: 1px solid var(--border-color);
             border-radius: 4px;
             margin-bottom: 10px;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        th, td {
-            padding: 8px 10px;
-            border-bottom: 1px solid var(--border-color);
-            text-align: left;
-        }
-        th {
-            background-color: #f8f9fa;
-            position: sticky;
-            top: 0;
-            color: var(--primary-color);
-        }
-        .input-inline {
-            width: 100%;
-            padding: 4px 6px;
-            border: 1px solid var(--border-color);
-            border-radius: 3px;
-        }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 6px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
+        th { background-color: #f8f9fa; position: sticky; top: 0; color: var(--primary-color); }
+        .input-inline { width: 100%; padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 3px; }
+        
+        /* ボタン類 */
         .btn {
             background-color: var(--accent-color);
             color: #fff;
@@ -106,74 +111,58 @@
             margin-right: 5px;
             margin-bottom: 5px;
         }
-        .btn:hover { background-color: #2980b9; }
+        .btn:hover { opacity: 0.9; }
         .btn-danger { background-color: #e74c3c; padding: 4px 8px; font-size: 12px; }
-        .btn-danger:hover { background-color: #c0392b; }
         .btn-success { background-color: #2ecc71; }
-        .btn-success:hover { background-color: #27ae60; }
-        .btn-large {
-            display: block;
-            width: 100%;
-            padding: 15px;
-            font-size: 18px;
-            margin: 20px 0;
-        }
-        .result-box {
-            background-color: #eef2f7;
-            border: 2px solid var(--accent-color);
-            height: 220px;
-        }
+        .btn-return { background-color: var(--return-color); }
+        .btn-large { display: block; width: 100%; padding: 15px; font-size: 18px; margin: 15px 0; }
+        
+        .result-box { background-color: #eef2f7; border: 2px solid var(--accent-color); }
+        .return-box { background-color: #fbf5ff; border: 2px solid var(--return-color); }
         .hint { font-size: 12px; color: #7f8c8d; margin-top: 5px; }
-        .sync-box {
-            background: #f8f9fa;
-            border: 1px dashed #ccc;
-            padding: 10px;
-            border-radius: 4px;
-            margin-top: 10px;
-        }
+        .sync-box { background: #f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 4px; margin-top: 5px; display: flex; gap: 5px; }
     </style>
 </head>
 <body>
 
-    <h1>タスクプロンプト整形ツール (スタンドアロン保存版)</h1>
+    <h1>タスクプロンプト整形＆実名復元ツール</h1>
     
+    <div class="guide-box">
+        <strong>💡 超かんたん！使い方ガイド</strong>
+        <div class="guide-steps">
+            <div class="step-card"><strong>① 隠す</strong><br><span style="font-size:12px;">メールを貼ってボタンを押し、マスクされたプロンプトをコピー</span></div>
+            <div class="step-card" style="background:#fcf3cf;"><strong>② AIへ投げる</strong><br><span style="font-size:12px;">社内AIに貼り付けて、タスク化された結果をコピーして戻ってくる</span></div>
+            <div class="step-card"><strong>③ 元に戻す</strong><br><span style="font-size:12px;">AIの返答を右下の「6」に貼ってボタンを押すと、実名に戻る！</span></div>
+        </div>
+    </div>
+
     <div class="layout-grid">
-        <div class="layout-col" style="width: 50%;">
+        <div class="layout-col">
             <div class="card">
-                <h2>1. マスキングルールの編集（ブラウザに自動保存されます）</h2>
+                <h2>1. マスキングルールの編集（自動保存）</h2>
                 <div class="table-container">
                     <table>
                         <thead>
                             <tr>
-                                <th style="width: 45%;">置換前の文字（実名など）</th>
-                                <th style="width: 45%;">置換後の文字（マスク）</th>
-                                <th style="width: 10%;">削除</th>
+                                <th>置換前の文字（実名）</th>
+                                <th>置換後の文字（マスク）</th>
+                                <th style="width:15%;">削除</th>
                             </tr>
                         </thead>
-                        <tbody id="rulesTableBody">
-                            </tbody>
+                        <tbody id="rulesTableBody"></tbody>
                     </table>
                 </div>
                 <button class="btn" onclick="addNewRow()">ルールの新規追加</button>
-                <button class="btn btn-success" onclick="saveToStorage()">明示的に保存</button>
+                <div class="sync-box">
+                    <input type="text" id="jsonDataBox" style="flex:1; padding:4px;" placeholder="ルールデータのインポート/エクスポート用">
+                    <button class="btn" style="padding:4px 10px;" onclick="exportRules()">出す</button>
+                    <button class="btn btn-success" style="padding:4px 10px;" onclick="importRules()">入れる</button>
+                </div>
             </div>
 
             <div class="card">
-                <h2>2. ルールのバックアップ・自身のPCとの連携</h2>
-                <p class="hint">PCのメモ帳などに以下のテキストを保存しておけば、いつでもルールを復元（インポート）できます。</p>
-                <div class="sync-box">
-                    <input type="text" id="jsonDataBox" style="width:70%; padding:6px;" placeholder="ここにルールデータ(JSON)が出力されます">
-                    <button class="btn" onclick="exportRules()">データ出力</button>
-                    <button class="btn btn-success" onclick="importRules()">データ読込</button>
-                </div>
-                <div style="margin-top: 10px;">
-                    <button class="btn" onclick="downloadCsv()">Excel用CSVダウンロード</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <h2>3. AIへの指示文 (プロンプトルール)</h2>
-                <textarea id="promptTemplate">以下のテキストは、私のメモやメールの内容です。
+                <h2>2. AI指示文テンプレート（自動保存）</h2>
+                <textarea id="promptTemplate" onchange="saveTemplate()">以下のテキストは、私のメモやメールの内容です。
 内容を分析し、以下の形式でタスクを整理して出力してください。
 
 # 1. 期限が近い重要タスク
@@ -182,27 +171,44 @@
 
 【対象テキスト】
 ---</textarea>
+                <div class="sync-box">
+                    <input type="text" id="jsonTemplateBox" style="flex:1; padding:4px;" placeholder="テンプレートのインポート/エクスポート用">
+                    <button class="btn" style="padding:4px 10px;" onclick="exportTemplate()">出す</button>
+                    <button class="btn btn-success" style="padding:4px 10px;" onclick="importTemplate()">入れる</button>
+                </div>
             </div>
         </div>
 
-        <div class="layout-col" style="width: 50%;">
+        <div class="layout-col">
             <div class="card">
-                <h2>4. メールの本文などを貼り付け</h2>
-                <textarea id="sourceText" style="height: 180px;" placeholder="ここに自分宛てに送ったメールの本文を貼り付けます。"></textarea>
+                <h2>3. メールの本文などを貼り付け</h2>
+                <textarea id="sourceText" placeholder="ここに自分宛てに送ったメール（実名入り）を貼り付けます。"></textarea>
             </div>
 
-            <button class="btn btn-large" onclick="generatePrompt()">マスキングしてプロンプトを生成 ▼</button>
+            <button class="btn btn-large" onclick="generatePrompt()">4. マスキングしてプロンプトを生成 ▼</button>
 
             <div class="card">
-                <h2>5. 整形されたプロンプト（クリックで全選択）</h2>
-                <textarea id="resultText" class="result-box" readonly onclick="this.select();" placeholder="変換結果がここに出力されます。"></textarea>
-                <p class="hint">※個人情報が正しく隠されているか必ず目視確認してください。</p>
+                <h2>5. 整形されたプロンプト（クリックで全選択 $\rightarrow$ AIへ）</h2>
+                <textarea id="resultText" class="result-box" readonly onclick="this.select();" placeholder="ボタンを押すと、秘密が隠されたプロンプトがここに出ます。"></textarea>
+            </div>
+
+            <div class="card" style="border-top: 4px solid var(--return-color);">
+                <h2>6. 社内AIからの返答をここに貼り付け</h2>
+                <textarea id="aiResponseText" placeholder="社内AIから返ってきた、マスキングされた状態の文章（[社員A]などが含まれるもの）をそのままここに貼り付けてください。"></textarea>
+            </div>
+
+            <button class="btn btn-large btn-return" onclick="restoreRealNames()">7. マスキングを解除して実名に戻す ▼</button>
+
+            <div class="card">
+                <h2>8. 実名に復元されたタスク結果</h2>
+                <textarea id="finalRestoredText" class="return-box" placeholder="実名に戻った最終結果がここに出力されます！"></textarea>
+                <button class="btn btn-success" style="margin-top:10px;" onclick="downloadHtmlOutput()">HTMLページとしてダウンロード</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 初回起動時のデフォルトルール（連想配列/JSON形式）
+        // 初期データ
         const defaultRules = [
             { before: "山田太郎", after: "[社員A]" },
             { before: "佐藤花子", after: "[社員B]" },
@@ -211,17 +217,17 @@
 
         let maskRules = [];
 
-        // 起動時の処理
         window.addEventListener('DOMContentLoaded', () => {
-            // ブラウザの記憶(LocalStorage)から読み込み。無ければデフォルトを作る
-            const saved = localStorage.getItem('mask_rules_data');
-            if (saved) {
-                maskRules = JSON.parse(saved);
-            } else {
-                maskRules = defaultRules;
-                saveToStorage();
-            }
+            // ルールの復元
+            const savedRules = localStorage.getItem('mask_rules_data');
+            maskRules = savedRules ? JSON.parse(savedRules) : defaultRules;
             renderRulesTable();
+
+            // テンプレートの復元
+            const savedTemplate = localStorage.getItem('prompt_template_data');
+            if (savedTemplate) {
+                document.getElementById('promptTemplate').value = savedTemplate;
+            }
         });
 
         function renderRulesTable() {
@@ -240,13 +246,13 @@
 
         function updateRule(index, key, value) {
             maskRules[index][key] = value.trim();
-            saveToStorage(); // 変更時に自動保存
+            saveRules();
         }
 
         function deleteRule(index) {
             maskRules.splice(index, 1);
             renderRulesTable();
-            saveToStorage();
+            saveRules();
         }
 
         function addNewRow() {
@@ -255,73 +261,25 @@
             if (employeeRules.length > 0) {
                 const lastRule = employeeRules[employeeRules.length - 1].after;
                 const charCode = lastRule.charCodeAt(lastRule.indexOf("社員") + 2);
-                if (charCode >= 65 && charCode < 90) {
-                    nextSuggest = `[社員${String.fromCharCode(charCode + 1)}]`;
-                } else {
-                    nextSuggest = `[社員${employeeRules.length + 1}]`;
-                }
-            } else {
-                nextSuggest = "[社員A]";
+                nextSuggest = (charCode >= 65 && charCode < 90) ? `[社員${String.fromCharCode(charCode + 1)}]` : `[社員${employeeRules.length + 1}]`;
             }
             maskRules.push({ before: "", after: nextSuggest });
             renderRulesTable();
-            
-            const inputs = document.querySelectorAll('#rulesTableBody tr:last-child input');
-            if(inputs.length > 0) inputs[0].focus();
+            document.querySelectorAll('#rulesTableBody tr:last-child input')[0].focus();
         }
 
-        // ブラウザへの保存
-        function saveToStorage() {
-            localStorage.setItem('mask_rules_data', JSON.stringify(maskRules));
-        }
+        function saveRules() { localStorage.setItem('mask_rules_data', JSON.stringify(maskRules)); }
+        function saveTemplate() { localStorage.setItem('prompt_template_data', document.getElementById('promptTemplate').value); }
 
-        // JSONデータとしてテキストボックスに出力
-        function exportRules() {
-            const jsonStr = JSON.stringify(maskRules);
-            const box = document.getElementById('jsonDataBox');
-            box.value = jsonStr;
-            box.select();
-            alert("ルールをテキスト（JSON）に変換しました。コピーしてPCのメモ帳などに保存してください。");
-        }
+        // ルール入出力
+        function exportRules() { const box = document.getElementById('jsonDataBox'); box.value = JSON.stringify(maskRules); box.select(); }
+        function importRules() { try { const parsed = JSON.parse(document.getElementById('jsonDataBox').value); if (Array.isArray(parsed)) { maskRules = parsed; saveRules(); renderRulesTable(); alert("ルール読込完了！"); } } catch(e){ alert("不正な形式です"); } }
 
-        // テキストボックスのJSONデータを読み込んでルールを更新
-        function importRules() {
-            const box = document.getElementById('jsonDataBox');
-            if (!box.value.trim()) {
-                alert("テキストボックスにルールデータを貼り付けてください。");
-                return;
-            }
-            try {
-                const parsed = JSON.parse(box.value);
-                if (Array.isArray(parsed)) {
-                    maskRules = parsed;
-                    saveToStorage();
-                    renderRulesTable();
-                    alert("ルールを読み込みました！");
-                } else {
-                    alert("データの形式が正しくありません。");
-                }
-            } catch (e) {
-                alert("データの解析に失敗しました。正しいJSONテキストか確認してください。");
-            }
-        }
+        // テンプレート入出力
+        function exportTemplate() { const box = document.getElementById('jsonTemplateBox'); box.value = JSON.stringify({template: document.getElementById('promptTemplate').value}); box.select(); }
+        function importTemplate() { try { const parsed = JSON.parse(document.getElementById('jsonTemplateBox').value); if (parsed.template) { document.getElementById('promptTemplate').value = parsed.template; saveTemplate(); alert("テンプレート読込完了！"); } } catch(e){ alert("不正な形式です"); } }
 
-        // Excel用CSVダウンロード
-        function downloadCsv() {
-            const csvContent = maskRules
-                .filter(r => r.before !== "")
-                .map(r => `${r.before},${r.after}`)
-                .join('\n');
-            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
-            const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'mask_rules.csv';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
-
+        // 4. マスキング処理（実名 -> マスク）
         function generatePrompt() {
             const template = document.getElementById('promptTemplate').value;
             let sourceText = document.getElementById('sourceText').value;
@@ -330,17 +288,46 @@
             sortedRules.forEach(rule => {
                 if (!rule.before) return;
                 const escapedBefore = rule.before.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const regex = new RegExp(escapedBefore, 'gi');
-                sourceText = sourceText.replace(regex, rule.after);
+                sourceText = sourceText.replace(new RegExp(escapedBefore, 'gi'), rule.after);
+            });
+            document.getElementById('resultText').value = template + "\n" + sourceText + "\n---";
+        }
+
+        // 7. 【新機能】逆置換処理（マスク -> 実名）
+        function restoreRealNames() {
+            let aiResponse = document.getElementById('aiResponseText').value;
+            // 逆置換時は、マスク文字（[社員A]など）が長い順に処理
+            const sortedRules = [...maskRules].sort((a, b) => b.after.length - a.after.length);
+
+            sortedRules.forEach(rule => {
+                if (!rule.after || !rule.before) return;
+                // マスク文字（[ や ] など）を正規表現用にエスケープ
+                const escapedAfter = rule.after.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                // AI出力を実名に戻す
+                aiResponse = aiResponse.replace(new RegExp(escapedAfter, 'gi'), rule.before);
             });
 
-            const finalPrompt = template + "\n" + sourceText + "\n---";
-            document.getElementById('resultText').value = finalPrompt;
+            document.getElementById('finalRestoredText').value = aiResponse;
         }
 
-        function escapeHtml(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        // 8. HTMLとしてダウンロード（フェーズ2の先取り機能）
+        function downloadHtmlOutput() {
+            const content = document.getElementById('finalRestoredText').value;
+            if(!content.trim()) { alert("出力結果が空です。"); return; }
+            
+            // 簡易的に見た目を整えたHTMLファイルを生成
+            const htmlTemplate = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>AI整理タスク結果</title><style>body{font-family:sans-serif; padding:30px; background:#f5f7fa; color:#333;} .container{background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); white-space: pre-wrap;}</style></head><body><div class="container">${escapeHtml(content)}</div></body></html>`;
+            
+            const blob = new Blob([htmlTemplate], { type: 'text/html;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'task_visible_result.html';
+            a.click();
+            URL.revokeObjectURL(url);
         }
+
+        function escapeHtml(str) { return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
     </script>
 </body>
 </html>
