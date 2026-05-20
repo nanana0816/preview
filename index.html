@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>社内AI用 プロンプト整形＆高度マスキングツール</title>
+    <title>社内AI用 プロンプト整形＆マスキングツール</title>
     <style>
         :root {
             --primary-color: #2c3e50;
@@ -65,7 +65,6 @@
             font-size: 14px;
             resize: vertical;
         }
-        /* ルール編集テーブルのスタイル */
         .table-container {
             max-height: 300px;
             overflow-y: auto;
@@ -95,7 +94,6 @@
             border: 1px solid var(--border-color);
             border-radius: 3px;
         }
-        /* ボタン類 */
         .btn {
             background-color: var(--accent-color);
             color: #fff;
@@ -105,6 +103,8 @@
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
+            margin-right: 5px;
+            margin-bottom: 5px;
         }
         .btn:hover { background-color: #2980b9; }
         .btn-danger { background-color: #e74c3c; padding: 4px 8px; font-size: 12px; }
@@ -118,37 +118,41 @@
             font-size: 18px;
             margin: 20px 0;
         }
-        .file-status {
-            font-size: 12px;
-            color: #7f8c8d;
-            margin-bottom: 10px;
-            padding: 6px;
-            background: #eef2f7;
-            border-radius: 4px;
-        }
         .result-box {
             background-color: #eef2f7;
             border: 2px solid var(--accent-color);
             height: 220px;
         }
         .hint { font-size: 12px; color: #7f8c8d; margin-top: 5px; }
+        .drop-zone {
+            border: 2px dashed var(--accent-color);
+            padding: 15px;
+            text-align: center;
+            background: #eef2f7;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
 
-    <h1>タスクプロンプト整形ツール (Advanced Version)</h1>
+    <h1>タスクプロンプト整形ツール (GitHub Pages 対応版)</h1>
     
-    <div class="card">
-        <h2>CSV連携設定</h2>
-        <div class="file-status" id="fileStatus">CSVファイルが選択されていません。同じフォルダの「mask_rules.csv」を選択してください。</div>
-        <button class="btn" onclick="selectCsvFile()">mask_rules.csv を指定して読み込む</button>
-        <button class="btn btn-success" id="saveBtn" onclick="saveCsvFile()" disabled>CSVファイルに上書き保存</button>
-    </div>
-
     <div class="layout-grid">
         <div class="layout-col" style="width: 50%;">
             <div class="card">
-                <h2>1. マスキングルールの追加・編集</h2>
+                <h2>CSVルールのインポート / エクスポート</h2>
+                <div class="drop-zone" id="dropZone">
+                    ここに mask_rules.csv をドラッグ＆ドロップするか、
+                    <input type="file" id="fileInput" accept=".csv" style="margin-top:5px;">
+                </div>
+                <button class="btn btn-success" onclick="downloadCsv()">編集したルールをCSVでダウンロード</button>
+            </div>
+
+            <div class="card">
+                <h2>1. マスキングルールの編集</h2>
                 <div class="table-container">
                     <table>
                         <thead>
@@ -196,19 +200,19 @@
     </div>
 
     <script>
-        let fileHandle = null;
+        // デフォルトのマスター設定（CSV未読込時の初期値）
         let maskRules = [
             { before: "山田太郎", after: "[社員A]" },
             { before: "佐藤花子", after: "[社員B]" },
+            { before: "鈴木一郎", after: "[社員C]" },
             { before: "株式会社A", after: "[取引先X]" }
         ];
 
-        // 起動時にデフォルトルールを描画
         window.addEventListener('DOMContentLoaded', () => {
             renderRulesTable();
+            setupDragAndDrop();
         });
 
-        // テーブルの描画
         function renderRulesTable() {
             const tbody = document.getElementById('rulesTableBody');
             tbody.innerHTML = '';
@@ -232,61 +236,50 @@
             renderRulesTable();
         }
 
-        // 新規追加時の自動提案ロジック
         function addNewRow() {
-            // 現在の「[社員X]」形式の最大文字（A, B, C...）や数値を調べる
-            let nextSuggest = "[社員C]"; // デフォルト
-            
+            let nextSuggest = "[社員D]";
             const employeeRules = maskRules.filter(r => r.after.includes("社員"));
             if (employeeRules.length > 0) {
-                // 既存の「社員A」「社員B」などの末尾の文字を抽出して次の文字を提案
                 const lastRule = employeeRules[employeeRules.length - 1].after;
-                const match = lastRule.match(/社員([A-Z0-9亜-熙ぁ-んァ-ヶ]) /);
-                
-                // アルファベット連番の簡易自動提案 (A -> B -> C)
+                const match = lastRule.match(/社員([A-Z0-9亜-熙ぁ-んァ-ヶ])/);
                 const charCode = lastRule.charCodeAt(lastRule.indexOf("社員") + 2);
-                if (charCode >= 65 && charCode < 90) { // A-Y
+                if (charCode >= 65 && charCode < 90) {
                     nextSuggest = `[社員${String.fromCharCode(charCode + 1)}]`;
                 } else {
-                    nextSuggest = `[社員${employeeRules.length + 1}]`; // 数字連番をフォールバック
+                    nextSuggest = `[社員${employeeRules.length + 1}]`;
                 }
             }
-
             maskRules.push({ before: "", after: nextSuggest });
             renderRulesTable();
-            
-            // 追加した行の「置換前」入力欄にフォーカスを当てる
             const inputs = document.querySelectorAll('#rulesTableBody tr:last-child input');
             if(inputs.length > 0) inputs[0].focus();
         }
 
-        // File System Access API を使ったファイル読み込み
-        async function selectCsvFile() {
-            try {
-                [fileHandle] = await window.showOpenFilePicker({
-                    types: [{
-                        description: 'CSV Files',
-                        accept: { 'text/csv': ['.csv'] }
-                    }],
-                    excludeAcceptAllOption: true,
-                    multiple: false
-                });
+        // ファイル選択・ドラッグ&ドロップの処理
+        function setupDragAndDrop() {
+            const fileInput = document.getElementById('fileInput');
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) handleFile(e.target.files[0]);
+            });
 
-                const file = await fileHandle.getFile();
-                const text = await file.text();
-                parseCsv(text);
-                
-                document.getElementById('fileStatus').innerText = `連携中: ${file.name} (読み込み完了)`;
-                document.getElementById('saveBtn').disabled = false;
-                renderRulesTable();
-            } catch (err) {
-                if (err.name !== 'AbortError') {
-                    alert('ファイルの読み込みに失敗しました: ' + err.message);
-                }
-            }
+            const dropZone = document.getElementById('dropZone');
+            dropZone.addEventListener('dragover', (e) => { e.preventDefault(); });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+            });
         }
 
-        // CSVのパース
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                parseCsv(text);
+                renderRulesTable();
+            };
+            reader.readAsText(file);
+        }
+
         function parseCsv(text) {
             const lines = text.split('\n');
             const importedRules = [];
@@ -294,45 +287,32 @@
                 if (!line.trim()) return;
                 const parts = line.split(',');
                 if (parts.length >= 2) {
-                    importedRules.push({
-                        before: parts[0].trim(),
-                        after: parts[1].trim()
-                    });
+                    importedRules.push({ before: parts[0].trim(), after: parts[1].trim() });
                 }
             });
-            if(importedRules.length > 0) {
-                maskRules = importedRules;
-            }
+            if(importedRules.length > 0) maskRules = importedRules;
         }
 
-        // File System Access API を使ったファイル上書き保存
-        async function saveCsvFile() {
-            if (!fileHandle) {
-                alert('ファイルが選択されていません。');
-                return;
-            }
-            try {
-                // CSVテキストの組み立て
-                const csvContent = maskRules
-                    .filter(r => r.before !== "")
-                    .map(r => `${r.before},${r.after}`)
-                    .join('\n');
-
-                const writable = await fileHandle.createWritable();
-                await writable.write(csvContent);
-                await writable.close();
-                alert('mask_rules.csv に変更を上書き保存しました！');
-            } catch (err) {
-                alert('保存に失敗しました。アクセス権限を確認してください: ' + err.message);
-            }
+        // CSVのダウンロード機能
+        function downloadCsv() {
+            const csvContent = maskRules
+                .filter(r => r.before !== "")
+                .map(r => `${r.before},${r.after}`)
+                .join('\n');
+            
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]); // Excel文字化け防止用BOM
+            const blob = new Blob([bom, csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'mask_rules.csv';
+            a.click();
+            URL.revokeObjectURL(url);
         }
 
-        // マスキング＆プロンプト生成
         function generatePrompt() {
             const template = document.getElementById('promptTemplate').value;
             let sourceText = document.getElementById('sourceText').value;
-
-            // 長い文字から順にソート（誤置換防止）
             const sortedRules = [...maskRules].sort((a, b) => b.before.length - a.before.length);
             
             sortedRules.forEach(rule => {
@@ -340,20 +320,14 @@
                 const escapedBefore = rule.before.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                 const regex = new RegExp(escapedBefore, 'gi');
                 sourceText = sourceText.replace(regex, rule.after);
-            } );
+            });
 
             const finalPrompt = template + "\n" + sourceText + "\n---";
             document.getElementById('resultText').value = finalPrompt;
         }
 
-        // HTMLエスケープ用ユーティリティ
         function escapeHtml(str) {
-            return str
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
 </body>
