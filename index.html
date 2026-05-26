@@ -3,331 +3,334 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>社内AI用 タスク整形＆超高度マスキングツール</title>
+    <title>次世代生産管理・物流可視化プロトタイプ</title>
     <style>
         :root {
-            --primary-color: #2c3e50;
-            --accent-color: #3498db;
-            --success-color: #2ecc71;
-            --return-color: #9b59b6;
-            --bg-color: #f5f7fa;
-            --card-bg: #ffffff;
-            --border-color: #dcdde1;
+            --bg-color: #f4f6f9;
+            --panel-bg: #ffffff;
+            --text-color: #333333;
+            --border-color: #e0e0e0;
+            --primary-color: #005bac;
+            --danger-color: #d9534f;
+            --success-color: #5cb85c;
         }
-        * { box-sizing: border-box; }
+
         body {
-            font-family: "Segoe UI", Meiryo, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 1300px;
-            margin: 0 auto;
-            padding: 20px;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', メイリオ, sans-serif;
+            margin: 0;
+            padding: 0;
             background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
-        h1 {
-            color: var(--primary-color);
-            border-bottom: 3px solid var(--accent-color);
-            padding-bottom: 10px;
-            font-size: 24px;
-            margin-bottom: 20px;
-        }
-        h2 {
-            font-size: 16px;
-            color: var(--primary-color);
-            margin-top: 0;
-            margin-bottom: 12px;
-            border-left: 4px solid var(--accent-color);
-            padding-left: 8px;
-        }
-        .guide-box {
-            background: #ebf5fb;
-            border: 1px solid var(--accent-color);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            font-size: 14px;
-        }
-        .guide-steps {
+
+        /* ヘッダー */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
             display: flex;
             justify-content: space-between;
-            gap: 10px;
-            margin-top: 10px;
+            align-items: center;
         }
-        .step-card {
-            background: #fff;
-            padding: 10px;
-            border-radius: 4px;
-            flex: 1;
-            border: 1px solid #bdc3c7;
-            text-align: center;
+
+        header h1 {
+            margin: 0;
+            font-size: 1.2rem;
         }
-        .layout-grid {
+
+        /* パンくずリスト風の階層ナビゲーション */
+        .breadcrumb-container {
+            background-color: var(--panel-bg);
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
-            gap: 20px;
+            gap: 10px;
+            align-items: center;
+            font-size: 0.9rem;
         }
-        .layout-col {
-            flex: 1;
-            min-width: 0;
-        }
-        .card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-        }
-        textarea {
-            width: 100%;
-            height: 150px;
-            padding: 12px;
+
+        .layer-btn {
+            background: none;
             border: 1px solid var(--border-color);
-            border-radius: 4px;
-            font-family: inherit;
-            font-size: 14px;
-            resize: vertical;
-        }
-        .table-container {
-            max-height: 200px;
-            overflow-y: auto;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            margin-bottom: 10px;
-        }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { padding: 6px 10px; border-bottom: 1px solid var(--border-color); text-align: left; }
-        th { background-color: #f8f9fa; position: sticky; top: 0; color: var(--primary-color); }
-        .input-inline { width: 100%; padding: 4px 6px; border: 1px solid var(--border-color); border-radius: 3px; }
-        
-        /* ボタン類 */
-        .btn {
-            background-color: var(--accent-color);
-            color: #fff;
-            border: none;
-            padding: 8px 16px;
-            font-size: 14px;
+            padding: 5px 10px;
             border-radius: 4px;
             cursor: pointer;
-            font-weight: bold;
-            margin-right: 5px;
-            margin-bottom: 5px;
+            transition: all 0.2s;
         }
-        .btn:hover { opacity: 0.9; }
-        .btn-danger { background-color: #e74c3c; padding: 4px 8px; font-size: 12px; }
-        .btn-success { background-color: #2ecc71; }
-        .btn-return { background-color: var(--return-color); }
-        .btn-large { display: block; width: 100%; padding: 15px; font-size: 18px; margin: 15px 0; }
-        
-        .result-box { background-color: #eef2f7; border: 2px solid var(--accent-color); }
-        .return-box { background-color: #fbf5ff; border: 2px solid var(--return-color); }
-        .hint { font-size: 12px; color: #7f8c8d; margin-top: 5px; }
-        .sync-box { background: #f8f9fa; border: 1px dashed #ccc; padding: 10px; border-radius: 4px; margin-top: 5px; display: flex; gap: 5px; }
+
+        .layer-btn:hover {
+            background-color: #e9ecef;
+        }
+
+        .layer-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+        /* メインコンテンツエリア */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* マップ描画エリア */
+        .map-area {
+            flex: 1;
+            position: relative;
+            background-color: #fafafa;
+            overflow: auto;
+            padding: 40px;
+        }
+
+        /* ネットワークノード（工程・ライン） */
+        .node {
+            position: absolute;
+            background-color: var(--panel-bg);
+            border: 2px solid #adb5bd;
+            border-radius: 8px;
+            padding: 15px;
+            width: 140px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            z-index: 2;
+        }
+
+        .node:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+            border-color: var(--primary-color);
+        }
+
+        .node-title {
+            font-weight: bold;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 3px;
+        }
+
+        .node-value {
+            font-size: 1.4rem;
+            font-weight: bold;
+            text-align: right;
+            color: #495057;
+        }
+
+        .node-unit {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-left: 2px;
+        }
+
+        /* コネクションライン（簡易版をCSSとSVGで表現） */
+        .svg-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* 詳細情報サイドパネル */
+        .side-panel {
+            width: 320px;
+            background-color: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            padding: 20px;
+            box-shadow: -2px 0 5px rgba(0,0,0,0.02);
+            overflow-y: auto;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 5px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .data-table th, .data-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .data-table th {
+            background-color: #f8f9fa;
+            color: #495057;
+            width: 40%;
+        }
+
+        .alert-badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+            background-color: var(--danger-color);
+        }
     </style>
 </head>
 <body>
 
-    <h1>タスクプロンプト整形＆実名復元ツール</h1>
-    
-    <div class="guide-box">
-        <strong>💡 超かんたん！使い方ガイド</strong>
-        <div class="guide-steps">
-            <div class="step-card"><strong>① 隠す</strong><br><span style="font-size:12px;">メールを貼ってボタンを押し、マスクされたプロンプトをコピー</span></div>
-            <div class="step-card" style="background:#fcf3cf;"><strong>② AIへ投げる</strong><br><span style="font-size:12px;">社内AIに貼り付けて、タスク化された結果をコピーして戻ってくる</span></div>
-            <div class="step-card"><strong>③ 元に戻す</strong><br><span style="font-size:12px;">AIの返答を右下の「6」に貼ってボタンを押すと、実名に戻る！</span></div>
-        </div>
+    <header>
+        <h1>リアルタイム・バリューストリーム監視システム</h1>
+        <div style="font-size: 0.85rem;">データ更新基準: 2026/05/27 2直現在</div>
+    </header>
+
+    <div class="breadcrumb-container">
+        <span>表示粒度:</span>
+        <button class="layer-btn" onclick="switchLayer('factory')">工場全体</button>
+        <span>&gt;</span>
+        <button class="layer-btn" onclick="switchLayer('bu_ka')">製造部 / 組立科</button>
+        <span>&gt;</span>
+        <button class="layer-btn active" onclick="switchLayer('line_koutei')">メインライン（工程レベル）</button>
     </div>
 
-    <div class="layout-grid">
-        <div class="layout-col">
-            <div class="card">
-                <h2>1. マスキングルールの編集（自動保存）</h2>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>置換前の文字（実名）</th>
-                                <th>置換後の文字（マスク）</th>
-                                <th style="width:15%;">削除</th>
-                            </tr>
-                        </thead>
-                        <tbody id="rulesTableBody"></tbody>
-                    </table>
-                </div>
-                <button class="btn" onclick="addNewRow()">ルールの新規追加</button>
-                <div class="sync-box">
-                    <input type="text" id="jsonDataBox" style="flex:1; padding:4px;" placeholder="ルールデータのインポート/エクスポート用">
-                    <button class="btn" style="padding:4px 10px;" onclick="exportRules()">出す</button>
-                    <button class="btn btn-success" style="padding:4px 10px;" onclick="importRules()">入れる</button>
-                </div>
+    <div class="main-container">
+        <div class="map-area" id="mapArea">
+            <svg class="svg-overlay" id="svgOverlay">
+                <defs>
+                    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#adb5bd" />
+                    </marker>
+                    <marker id="arrow-danger" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                        <path d="M 0 0 L 10 5 L 0 10 z" fill="#d9534f" />
+                    </marker>
+                </defs>
+                
+                </svg>
+
             </div>
 
-            <div class="card">
-                <h2>2. AI指示文テンプレート（自動保存）</h2>
-                <textarea id="promptTemplate" onchange="saveTemplate()">以下のテキストは、私のメモやメールの内容です。
-内容を分析し、以下の形式でタスクを整理して出力してください。
-
-# 1. 期限が近い重要タスク
-# 2. 今週中に対応すべきタスク
-# 3. チームメンバーへの展開・確認事項
-
-【対象テキスト】
----</textarea>
-                <div class="sync-box">
-                    <input type="text" id="jsonTemplateBox" style="flex:1; padding:4px;" placeholder="テンプレートのインポート/エクスポート用">
-                    <button class="btn" style="padding:4px 10px;" onclick="exportTemplate()">出す</button>
-                    <button class="btn btn-success" style="padding:4px 10px;" onclick="importTemplate()">入れる</button>
-                </div>
-            </div>
-        </div>
-
-        <div class="layout-col">
-            <div class="card">
-                <h2>3. メールの本文などを貼り付け</h2>
-                <textarea id="sourceText" placeholder="ここに自分宛てに送ったメール（実名入り）を貼り付けます。"></textarea>
-            </div>
-
-            <button class="btn btn-large" onclick="generatePrompt()">4. マスキングしてプロンプトを生成 ▼</button>
-
-            <div class="card">
-                <h2>5. 整形されたプロンプト（クリックで全選択 $\rightarrow$ AIへ）</h2>
-                <textarea id="resultText" class="result-box" readonly onclick="this.select();" placeholder="ボタンを押すと、秘密が隠されたプロンプトがここに出ます。"></textarea>
-            </div>
-
-            <div class="card" style="border-top: 4px solid var(--return-color);">
-                <h2>6. 社内AIからの返答をここに貼り付け</h2>
-                <textarea id="aiResponseText" placeholder="社内AIから返ってきた、マスキングされた状態の文章（[社員A]などが含まれるもの）をそのままここに貼り付けてください。"></textarea>
-            </div>
-
-            <button class="btn btn-large btn-return" onclick="restoreRealNames()">7. マスキングを解除して実名に戻す ▼</button>
-
-            <div class="card">
-                <h2>8. 実名に復元されたタスク結果</h2>
-                <textarea id="finalRestoredText" class="return-box" placeholder="実名に戻った最終結果がここに出力されます！"></textarea>
-                <button class="btn btn-success" style="margin-top:10px;" onclick="downloadHtmlOutput()">HTMLページとしてダウンロード</button>
-            </div>
+        <div class="side-panel" id="sidePanel">
+            <h2 class="panel-title" id="panelTitle">工程を選択してください</h2>
+            <p style="font-size:0.85rem; color:#6c757d;">左側のマップ内のノードをクリックすると、4M情報や資産No.などの詳細が表示されます。</p>
+            <div id="panelContent"></div>
         </div>
     </div>
 
     <script>
-        // 初期データ
-        const defaultRules = [
-            { before: "山田太郎", after: "[社員A]" },
-            { before: "佐藤花子", after: "[社員B]" },
-            { before: "株式会社A", after: "[取引先X]" }
+        // サンプルデータ（粒度：工程レベル）
+        const mockNodes = [
+            { id: 'K_01', name: '工程1: ボデー投入', val: 12, unit: '台', x: 50, y: 150, factory: 'A工場', bu: '製造部', ka: '組立科', line: 'メインライン', assetNo: 'EQ-BO-001', leader: '日野 太郎', status: '正常' },
+            { id: 'K_02', name: '工程2: ドア組付', val: 42, unit: '台', x: 300, y: 150, factory: 'A工場', bu: '製造部', ka: '組立科', line: 'メインライン', assetNo: 'EQ-DR-042', leader: '日野 次郎', status: '仕掛滞留注意' },
+            { id: 'K_03', name: '工程3: サブライン合流', val: 8, unit: '台', x: 300, y: 320, factory: 'A工場', bu: '製造部', ka: '組立科', line: 'サブライン', assetNo: 'EQ-SUB-102', leader: '山田 三郎', status: '正常' },
+            { id: 'K_04', name: '工程4: 外観検査', val: 5, unit: '台', x: 600, y: 150, factory: 'A工場', bu: '製造部', ka: '組立科', line: 'メインライン', assetNo: 'EQ-IN-009', leader: '佐藤 四郎', status: '正常' }
         ];
 
-        let maskRules = [];
+        // 工程同士を繋ぐルート（線）と、その間の仕掛・物流数
+        const mockEdges = [
+            { from: 'K_01', to: 'K_02', inTransit: 28, alert: true },  // 仕掛が溜まりすぎているルート
+            { from: 'K_02', to: 'K_04', inTransit: 8, alert: false },
+            { from: 'K_03', to: 'K_02', inTransit: 4, alert: false }
+        ];
 
-        window.addEventListener('DOMContentLoaded', () => {
-            // ルールの復元
-            const savedRules = localStorage.getItem('mask_rules_data');
-            maskRules = savedRules ? JSON.parse(savedRules) : defaultRules;
-            renderRulesTable();
+        // 画面の初期描画
+        function renderMap() {
+            const mapArea = document.getElementById('mapArea');
+            const svgOverlay = document.getElementById('svgOverlay');
 
-            // テンプレートの復元
-            const savedTemplate = localStorage.getItem('prompt_template_data');
-            if (savedTemplate) {
-                document.getElementById('promptTemplate').value = savedTemplate;
-            }
-        });
+            // 既存のノードをクリア（SVG以外の要素を削除）
+            const nodes = mapArea.querySelectorAll('.node');
+            nodes.forEach(n => n.remove());
 
-        function renderRulesTable() {
-            const tbody = document.getElementById('rulesTableBody');
-            tbody.innerHTML = '';
-            maskRules.forEach((rule, index) => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><input type="text" class="input-inline" value="${escapeHtml(rule.before)}" onchange="updateRule(${index}, 'before', this.value)"></td>
-                    <td><input type="text" class="input-inline" value="${escapeHtml(rule.after)}" onchange="updateRule(${index}, 'after', this.value)"></td>
-                    <td><button class="btn btn-danger" onclick="deleteRule(${index})">削除</button></td>
+            // 1. ノード（工程カード）の配置
+            mockNodes.forEach(node => {
+                const div = document.createElement('div');
+                div.className = 'node';
+                div.style.left = node.x + 'px';
+                div.style.top = node.y + 'px';
+                div.innerHTML = `
+                    <div class="node-title">${node.name}</div>
+                    <div class="node-value">${node.val}<span class="node-unit">${node.unit}</span></div>
                 `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function updateRule(index, key, value) {
-            maskRules[index][key] = value.trim();
-            saveRules();
-        }
-
-        function deleteRule(index) {
-            maskRules.splice(index, 1);
-            renderRulesTable();
-            saveRules();
-        }
-
-        function addNewRow() {
-            let nextSuggest = "[社員A]";
-            const employeeRules = maskRules.filter(r => r.after.includes("社員"));
-            if (employeeRules.length > 0) {
-                const lastRule = employeeRules[employeeRules.length - 1].after;
-                const charCode = lastRule.charCodeAt(lastRule.indexOf("社員") + 2);
-                nextSuggest = (charCode >= 65 && charCode < 90) ? `[社員${String.fromCharCode(charCode + 1)}]` : `[社員${employeeRules.length + 1}]`;
-            }
-            maskRules.push({ before: "", after: nextSuggest });
-            renderRulesTable();
-            document.querySelectorAll('#rulesTableBody tr:last-child input')[0].focus();
-        }
-
-        function saveRules() { localStorage.setItem('mask_rules_data', JSON.stringify(maskRules)); }
-        function saveTemplate() { localStorage.setItem('prompt_template_data', document.getElementById('promptTemplate').value); }
-
-        // ルール入出力
-        function exportRules() { const box = document.getElementById('jsonDataBox'); box.value = JSON.stringify(maskRules); box.select(); }
-        function importRules() { try { const parsed = JSON.parse(document.getElementById('jsonDataBox').value); if (Array.isArray(parsed)) { maskRules = parsed; saveRules(); renderRulesTable(); alert("ルール読込完了！"); } } catch(e){ alert("不正な形式です"); } }
-
-        // テンプレート入出力
-        function exportTemplate() { const box = document.getElementById('jsonTemplateBox'); box.value = JSON.stringify({template: document.getElementById('promptTemplate').value}); box.select(); }
-        function importTemplate() { try { const parsed = JSON.parse(document.getElementById('jsonTemplateBox').value); if (parsed.template) { document.getElementById('promptTemplate').value = parsed.template; saveTemplate(); alert("テンプレート読込完了！"); } } catch(e){ alert("不正な形式です"); } }
-
-        // 4. マスキング処理（実名 -> マスク）
-        function generatePrompt() {
-            const template = document.getElementById('promptTemplate').value;
-            let sourceText = document.getElementById('sourceText').value;
-            const sortedRules = [...maskRules].sort((a, b) => b.before.length - a.before.length);
-            
-            sortedRules.forEach(rule => {
-                if (!rule.before) return;
-                const escapedBefore = rule.before.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                sourceText = sourceText.replace(new RegExp(escapedBefore, 'gi'), rule.after);
-            });
-            document.getElementById('resultText').value = template + "\n" + sourceText + "\n---";
-        }
-
-        // 7. 【新機能】逆置換処理（マスク -> 実名）
-        function restoreRealNames() {
-            let aiResponse = document.getElementById('aiResponseText').value;
-            // 逆置換時は、マスク文字（[社員A]など）が長い順に処理
-            const sortedRules = [...maskRules].sort((a, b) => b.after.length - a.after.length);
-
-            sortedRules.forEach(rule => {
-                if (!rule.after || !rule.before) return;
-                // マスク文字（[ や ] など）を正規表現用にエスケープ
-                const escapedAfter = rule.after.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                // AI出力を実名に戻す
-                aiResponse = aiResponse.replace(new RegExp(escapedAfter, 'gi'), rule.before);
+                div.onclick = () => showDetails(node);
+                mapArea.appendChild(div);
             });
 
-            document.getElementById('finalRestoredText').value = aiResponse;
+            // 2. エッジ（矢印線）の描画
+            let svgContent = svgOverlay.innerHTML; // defsを保持するため
+            mockEdges.forEach(edge => {
+                const fromNode = mockNodes.find(n => n.id === edge.from);
+                const toNode = mockNodes.find(n => n.id === edge.to);
+
+                if (fromNode && toNode) {
+                    // カードの中心位置を計算（幅170px、高75pxの概算値に基づく）
+                    const x1 = fromNode.x + 85;
+                    const y1 = fromNode.y + 37;
+                    const x2 = toNode.x + 5; // 少し手前で止める
+                    const y2 = toNode.y + 37;
+
+                    const strokeColor = edge.alert ? 'var(--danger-color)' : '#adb5bd';
+                    const strokeWidth = edge.alert ? '4' : '2';
+                    const marker = edge.alert ? 'url(#arrow-danger)' : 'url(#arrow)';
+
+                    // 直線またはカギ線を引く（今回は簡易的な直線）
+                    svgContent += `
+                        <g>
+                            <path d="M ${x1} ${y1} L ${x2} ${y2}" stroke="${strokeColor}" stroke-width="${strokeWidth}" fill="none" marker-end="${marker}" />
+                            <text x="${(x1+x2)/2}" y="${((y1+y2)/2) - 10}" fill="${strokeColor}" font-size="12" font-weight="bold" text-anchor="middle">
+                                移動中: ${edge.inTransit}台
+                            </text>
+                        </g>
+                    `;
+                }
+            });
+            svgOverlay.innerHTML = svgContent;
         }
 
-        // 8. HTMLとしてダウンロード（フェーズ2の先取り機能）
-        function downloadHtmlOutput() {
-            const content = document.getElementById('finalRestoredText').value;
-            if(!content.trim()) { alert("出力結果が空です。"); return; }
+        // 詳細情報の表示
+        function showDetails(node) {
+            document.getElementById('panelTitle').innerText = node.name;
             
-            // 簡易的に見た目を整えたHTMLファイルを生成
-            const htmlTemplate = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>AI整理タスク結果</title><style>body{font-family:sans-serif; padding:30px; background:#f5f7fa; color:#333;} .container{background:#fff; padding:20px; border-radius:8px; box-shadow:0 2px 4px rgba(0,0,0,0.1); white-space: pre-wrap;}</style></head><body><div class="container">${escapeHtml(content)}</div></body></html>`;
-            
-            const blob = new Blob([htmlTemplate], { type: 'text/html;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'task_visible_result.html';
-            a.click();
-            URL.revokeObjectURL(url);
+            let statusBadge = node.status === '正常' 
+                ? `<span class="alert-badge" style="background-color:var(--success-color)">${node.status}</span>`
+                : `<span class="alert-badge">${node.status}</span>`;
+
+            const html = `
+                <table class="data-table">
+                    <tr><th>ステータス</th><td>${statusBadge}</td></tr>
+                    <tr><th>工場</th><td>${node.factory}</td></tr>
+                    <tr><th>所属部</th><td>${node.bu}</td></tr>
+                    <tr><th>所属科</th><td>${node.ka}</td></tr>
+                    <tr><th>所属ライン</th><td>${node.line}</td></tr>
+                    <tr><th>設備資産No.</th><td><strong>${node.assetNo}</strong></td></tr>
+                    <tr><th>担当当番（Man）</th><td>${node.leader} 指導員</td></tr>
+                    <tr><th>現在の工程内数</th><td>${node.val} ${node.unit}</td></tr>
+                </table>
+                <div style="margin-top: 15px; font-size:0.8rem; background:#f8f9fa; padding:10px; border-radius:4px; border-left:4px solid var(--primary-color);">
+                    <strong>職長・工長へのヒント:</strong><br>
+                    前工程からの移動数が基準値をオーバーしています。手前の工程でのタクト遅れ、または搬送用AGVのトラブル（変化点）がないか確認してください。
+                </div>
+            `;
+            document.getElementById('panelContent').innerHTML = html;
         }
 
-        function escapeHtml(str) { return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+        // 階層切り替えのダミー関数（今回はメッセージのみ）
+        function switchLayer(layerName) {
+            alert(`粒度を変更しました: [${layerName}]\n\n実際のシステムでは、ここでマップの解像度が『工場単位』の大きな塊から、個々の『設備資産単位』の細かな繋がりへと動的に切り替わります。`);
+        }
+
+        // ページロード時にマップを展開
+        window.onload = renderMap;
     </script>
 </body>
 </html>
