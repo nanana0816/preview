@@ -1,1 +1,455 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>住宅ローンシミュレーター (42歳からの返済計画)</title>
+    <style>
+        :root {
+            --primary-color: #2b4c7e;
+            --primary-light: #eef4fc;
+            --accent-color: #e67e22;
+            --text-color: #2c3e50;
+            --border-color: #dcdde1;
+            --bg-color: #f5f7fa;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--primary-light);
+        }
+
+        header h1 {
+            color: var(--primary-color);
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .main-layout {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        @media (min-width: 768px) {
+            .main-layout {
+                flex-direction: row;
+            }
+            .input-section {
+                flex: 1;
+            }
+            .result-section {
+                flex: 1.2;
+            }
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 8px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .input-desc {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: -4px;
+            margin-bottom: 8px;
+        }
+
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="number"], select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 16px;
+            color: var(--text-color);
+            transition: border-color 0.2s;
+        }
+
+        input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        .unit {
+            position: absolute;
+            right: 12px;
+            color: #7f8c8d;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        input.with-unit {
+            padding-right: 40px;
+        }
+
+        /* 結果表示デザイン */
+        .result-box {
+            background: var(--primary-light);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .result-label {
+            font-size: 14px;
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .result-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 5px 0;
+        }
+
+        .result-value span {
+            font-size: 18px;
+            font-weight: normal;
+            margin-left: 4px;
+        }
+
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+
+        .summary-table th, .summary-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .summary-table th {
+            color: #7f8c8d;
+            font-weight: 600;
+            width: 45%;
+        }
+
+        .summary-table td {
+            font-weight: bold;
+            text-align: right;
+        }
+
+        .alert-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff9e6;
+            border-left: 4px solid var(--accent-color);
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .alert-box h4 {
+            color: #b76e00;
+            margin-bottom: 5px;
+        }
+
+        .alert-box ul {
+            padding-left: 18px;
+        }
+
+        .preset-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .btn-preset {
+            background: #fff;
+            border: 1px solid var(--border-color);
+            padding: 6px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-preset:hover {
+            background: var(--primary-light);
+            border-color: var(--primary-color);
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>住宅ローン支払額シミュレーター</h1>
+        <p>42歳からの現実的な返済期間と、老後リスクを可視化します</p>
+    </header>
+
+    <div class="main-layout">
+        <!-- 入力エリア -->
+        <div class="input-section class card">
+            <div class="card-title">条件を設定</div>
+            
+            <div class="form-group">
+                <label for="currentAge">現在の年齢</label>
+                <div class="input-wrapper">
+                    <input type="number" id="currentAge" value="42" min="1" max="75" class="with-unit">
+                    <span class="unit">歳</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>借入金額</label>
+                <div class="input-wrapper">
+                    <input type="number" id="loanAmount" value="3000" min="100" max="20000" step="100" class="with-unit">
+                    <span class="unit">万円</span>
+                </div>
+                <div class="preset-buttons">
+                    <button class="btn-preset" onclick="setAmount(3000)">3,000万円</button>
+                    <button class="btn-preset" onclick="setAmount(4000)">4,000万円</button>
+                    <button class="btn-preset" onclick="setAmount(5000)">5,000万円</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>返済期間</label>
+                <div class="input-wrapper">
+                    <input type="number" id="loanTerm" value="23" min="1" max="35" class="with-unit">
+                    <span class="unit">年</span>
+                </div>
+                <div class="preset-buttons">
+                    <button class="btn-preset" onclick="setTerm(23)">23年(65歳完済)</button>
+                    <button class="btn-preset" onclick="setTerm(30)">30年(72歳完済)</button>
+                    <button class="btn-preset" onclick="setTerm(35)">35年(77歳完済)</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="interestRate">金利（年利・元利均等）</label>
+                <div class="input-wrapper">
+                    <input type="number" id="interestRate" value="0.5" min="0.0" max="10.0" step="0.01" class="with-unit">
+                    <span class="unit">%</span>
+                </div>
+                <div class="preset-buttons">
+                    <button class="btn-preset" onclick="setRate(0.5)">0.5% (変動目安)</button>
+                    <button class="btn-preset" onclick="setRate(1.8)">1.8% (固定目安)</button>
+                    <button class="btn-preset" onclick="setRate(2.2)">2.2% (フラット)</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="retireAge">想定定年（現役引退）の年齢</label>
+                <div class="input-wrapper">
+                    <input type="number" id="retireAge" value="65" min="50" max="80" class="with-unit">
+                    <span class="unit">歳</span>
+                </div>
+                <div class="input-desc">定年後に残る残債を計算するために使用します。</div>
+            </div>
+        </div>
+
+        <!-- 結果表示エリア -->
+        <div class="result-section card">
+            <div class="card-title">試算結果</div>
+            
+            <div class="result-box">
+                <div class="result-label">毎月の支払額 (概算)</div>
+                <div class="result-value" id="monthlyPayment">0<span>円</span></div>
+            </div>
+
+            <table class="summary-table">
+                <tr>
+                    <th>完済時年齢</th>
+                    <td id="endAge">0 歳</td>
+                </tr>
+                <tr>
+                    <th>定年までの返済期間</th>
+                    <td id="yearsToRetire">0 年</td>
+                </tr>
+                <tr id="postRetireRow">
+                    <th>定年後の返済期間</th>
+                    <td id="yearsPostRetire" style="color: var(--accent-color);">0 年</td>
+                </tr>
+                <tr>
+                    <th>定年時のローン残債</th>
+                    <td id="remainingBalance" style="color: var(--accent-color);">0 円</td>
+                </tr>
+                <tr>
+                    <th>総返済額 (利息含む)</th>
+                    <td id="totalPayment">0 円</td>
+                </tr>
+                <tr>
+                    <th>うち総利息負担額</th>
+                    <td id="totalInterest">0 円</td>
+                </tr>
+            </table>
+
+            <div class="alert-box" id="alertBox" style="display: none;">
+                <h4>⚠️ 老後返済プランの注意点</h4>
+                <div id="alertMessage"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 要素の取得
+    const currentAgeInput = document.getElementById('currentAge');
+    const loanAmountInput = document.getElementById('loanAmount');
+    const loanTermInput = document.getElementById('loanTerm');
+    const interestRateInput = document.getElementById('interestRate');
+    const retireAgeInput = document.getElementById('retireAge');
+
+    // プリセット用関数
+    function setAmount(val) { loanAmountInput.value = val; calculate(); }
+    function setTerm(val) { loanTermInput.value = val; calculate(); }
+    function setRate(val) { interestRateInput.value = val; calculate(); }
+
+    // 計算ロジック
+    function calculate() {
+        const currentAge = parseInt(currentAgeInput.value) || 0;
+        const amountPrincipal = (parseInt(loanAmountInput.value) || 0) * 10000; // 万円を円に
+        const termYears = parseInt(loanTermInput.value) || 0;
+        const annualRate = (parseFloat(interestRateInput.value) || 0) / 100;
+        const retireAge = parseInt(retireAgeInput.value) || 0;
+
+        if (amountPrincipal <= 0 || termYears <= 0) return;
+
+        const totalMonths = termYears * 12;
+        const monthlyRate = annualRate / 12;
+
+        let monthlyPayment = 0;
+        let totalPayment = 0;
+        let totalInterest = 0;
+
+        if (annualRate === 0) {
+            monthlyPayment = amountPrincipal / totalMonths;
+            totalPayment = amountPrincipal;
+        } else {
+            // 元利均等返済の公式
+            monthlyPayment = amountPrincipal * (monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) / (Math.pow(1 + monthlyRate, totalMonths) - 1);
+            totalPayment = monthlyPayment * totalMonths;
+            totalInterest = totalPayment - amountPrincipal;
+        }
+
+        // 完済時年齢
+        const endAge = currentAge + termYears;
+
+        // 定年までの期間・定年後の期間
+        const yearsToRetire = Math.max(0, retireAge - currentAge);
+        const monthsToRetire = yearsToRetire * 12;
+        const yearsPostRetire = Math.max(0, endAge - retireAge);
+
+        // 定年時の残債計算
+        let remainingBalance = 0;
+        if (endAge > retireAge) {
+            if (annualRate === 0) {
+                remainingBalance = amountPrincipal - (monthlyPayment * monthsToRetire);
+            } else {
+                // 残債公式
+                remainingBalance = amountPrincipal * Math.pow(1 + monthlyRate, monthsToRetire) - (monthlyPayment * (Math.pow(1 + monthlyRate, monthsToRetire) - 1) / monthlyRate);
+            }
+        }
+
+        // 画面への反映
+        document.getElementById('monthlyPayment').innerHTML = Math.round(monthlyPayment).toLocaleString() + '<span>円</span>';
+        document.getElementById('endAge').innerText = endAge + ' 歳';
+        document.getElementById('yearsToRetire').innerText = yearsToRetire + ' 年';
+        document.getElementById('yearsPostRetire').innerText = yearsPostRetire + ' 年';
+        document.getElementById('remainingBalance').innerText = Math.round(remainingBalance).toLocaleString() + ' 円';
+        document.getElementById('totalPayment').innerText = Math.round(totalPayment).toLocaleString() + ' 円';
+        document.getElementById('totalInterest').innerText = Math.round(totalInterest).toLocaleString() + ' 円';
+
+        // アラートの制御
+        const alertBox = document.getElementById('alertBox');
+        const alertMessage = document.getElementById('alertMessage');
+        
+        if (endAge > retireAge) {
+            alertBox.style.display = 'block';
+            alertMessage.innerHTML = `
+                <ul>
+                    <li>定年（${retireAge}歳）以降も<strong> ${yearsPostRetire}年間 </strong>の返済が継続します。</li>
+                    <li>定年時の予測残債は<strong> ${Math.round(remainingBalance / 10000).toLocaleString()}万円 </strong>です。この金額を退職金や貯蓄から繰り上げ返済する、あるいは細かく資産運用等で準備しておく計画が必要です。</li>
+                    <li>完済時の年齢は <strong>${endAge}歳</strong> となります（一般的に審査上の上限は80歳未満です）。</li>
+                </ul>
+            `;
+        } else {
+            alertBox.style.display = 'none';
+        }
+    }
+
+    // イベントリスナーの登録
+    [currentAgeInput, loanAmountInput, loanTermInput, interestRateInput, retireAgeInput].forEach(input => {
+        input.addEventListener('input', calculate);
+    });
+
+    // 初期計算の実行
+    calculate();
+</script>
+
+</body>
+</html>
 
