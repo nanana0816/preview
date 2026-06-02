@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工場総合ロケーションマップツール</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            color: #1e293b;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        .header {
+            background: white;
+            padding: 16px 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            z-index: 100;
+        }
+
+        .back-btn {
+            padding: 8px 16px;
+            background: #e2e8f0;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            color: #475569;
+            transition: all 0.2s ease;
+            min-width: 80px;
+        }
+
+        .back-btn:hover:not(:disabled) {
+            background: #cbd5e1;
+            transform: translateX(-2px);
+        }
+
+        .back-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            color: #0f172a;
+        }
+
+        .breadcrumb {
+            margin-left: auto;
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .map-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px;
+            overflow: auto;
+            position: relative;
+        }
+
+        svg {
+            max-width: 100%;
+            max-height: 100%;
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.08));
+        }
+
+        .map-element {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .map-element:hover {
+            filter: brightness(0.95);
+        }
+
+        .map-element rect,
+        .map-element circle {
+            transition: all 0.3s ease;
+        }
+
+        .map-element:hover rect,
+        .map-element:hover circle {
+            filter: drop-shadow(0 2px 6px rgba(0,0,0,0.15));
+        }
+
+        .label {
+            font-size: 14px;
+            font-weight: 600;
+            text-anchor: middle;
+            pointer-events: none;
+            fill: #1e293b;
+        }
+
+        .alert-indicator {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                r: 12;
+                fill: #ef4444;
+                opacity: 1;
+            }
+            50% {
+                r: 16;
+                opacity: 0.6;
+            }
+        }
+
+        .side-panel {
+            position: fixed;
+            right: 0;
+            top: 0;
+            width: 360px;
+            height: 100vh;
+            background: white;
+            box-shadow: -4px 0 16px rgba(0,0,0,0.12);
+            z-index: 200;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .side-panel.open {
+            transform: translateX(0);
+        }
+
+        .panel-header {
+            padding: 20px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .panel-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #64748b;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .panel-close:hover {
+            color: #1e293b;
+            background: #f1f5f9;
+            border-radius: 6px;
+        }
+
+        .panel-content {
+            padding: 20px;
+            flex: 1;
+        }
+
+        .detail-row {
+            margin-bottom: 16px;
+        }
+
+        .detail-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            font-size: 14px;
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-top: 8px;
+        }
+
+        .status-normal {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.3);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 150;
+        }
+
+        .overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .pin {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pin:hover circle {
+            r: 7;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+        }
+
+        @media (max-width: 768px) {
+            .side-panel {
+                width: 100%;
+            }
+            
+            .map-container {
+                padding: 16px;
+            }
+
+            .header {
+                padding: 12px 16px;
+            }
+
+            .header-title {
+                font-size: 16px;
+            }
+
+            .breadcrumb {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="back-btn" id="backBtn" disabled>← 戻る</button>
+            <div class="header-title">工場ロケーションマップ</div>
+            <div class="breadcrumb" id="breadcrumb"></div>
+        </div>
+        
+        <div class="map-container" id="mapContainer">
+            <svg id="mapSvg" width="800" height="600" viewBox="0 0 800 600"></svg>
+        </div>
+
+        <div class="overlay" id="overlay"></div>
+
+        <div class="side-panel" id="sidePanel">
+            <div class="panel-header">
+                <div class="panel-title">詳細情報</div>
+                <button class="panel-close" id="panelClose">✕</button>
+            </div>
+            <div class="panel-content" id="panelContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // データ定義
+        const locationData = {
+            buildings: [
+                {
+                    id: 'bldg-a',
+                    name: 'A棟',
+                    x: 150,
+                    y: 150,
+                    width: 200,
+                    height: 150,
+                    color: '#93c5fd',
+                    lines: [
+                        {
+                            id: 'line-a1',
+                            name: '第1ライン',
+                            x: 50,
+                            y: 50,
+                            width: 280,
+                            height: 200,
+                            color: '#a5f3fc',
+                            equipment: [
+                                { id: 'eq-a1-1', name: 'コンベア1', type: 'equipment', x: 80, y: 80, status: 'normal', lastInspection: '2026-05-28' },
+                                { id: 'eq-a1-2', name: 'ロボットアーム1', type: 'equipment', x: 180, y: 100, status: 'error', lastInspection: '2026-05-15' },
+                                { id: 'fire-a1-1', name: '消火器A1', type: 'fire_extinguisher', x: 120, y: 60, status: 'normal', lastInspection: '2026-04-10' },
+                                { id: 'outlet-a1-1', name: 'コンセント A1-1', type: 'outlet', x: 250, y: 150, status: 'normal', lastInspection: '2026-05-20' }
+                            ]
+                        },
+                        {
+                            id: 'line-a2',
+                            name: '第2ライン',
+                            x: 50,
+                            y: 280,
+                            width: 280,
+                            height: 200,
+                            color: '#a5f3fc',
+                            equipment: [
+                                { id: 'eq-a2-1', name: 'コンベア2', type: 'equipment', x: 100, y: 80, status: 'normal', lastInspection: '2026-05-27' },
+                                { id: 'fire-a2-1', name: '消火器A2', type: 'fire_extinguisher', x: 180, y: 60, status: 'normal', lastInspection: '2026-04-05' },
+                                { id: 'outlet-a2-1', name: 'コンセント A2-1', type: 'outlet', x: 280, y: 120, status: 'normal', lastInspection: '2026-05-22' }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'bldg-b',
+                    name: 'B棟',
+                    x: 450,
+                    y: 150,
+                    width: 200,
+                    height: 150,
+                    color: '#93c5fd',
+                    lines: [
+                        {
+                            id: 'line-b1',
+                            name: '組立ライン',
+                            x: 50,
+                            y: 50,
+                            width: 280,
+                            height: 200,
+                            color: '#a5f3fc',
+                            equipment: [
+                                { id: 'eq-b1-1', name: 'アッセンブラ1', type: 'equipment', x: 90, y: 90, status: 'normal', lastInspection: '2026-05-29' },
+                                { id: 'eq-b1-2', name: 'テスター1', type: 'equipment', x: 200, y: 100, status: 'error', lastInspection: '2026-05-10' },
+                                { id: 'fire-b1-1', name: '消火器B1', type: 'fire_extinguisher', x: 240, y: 70, status: 'normal', lastInspection: '2026-04-12' }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'bldg-c',
+                    name: 'C棟',
+                    x: 150,
+                    y: 400,
+                    width: 200,
+                    height: 150,
+                    color: '#93c5fd',
+                    lines: [
+                        {
+                            id: 'line-c1',
+                            name: '検査ライン',
+                            x: 50,
+                            y: 50,
+                            width: 280,
+                            height: 200,
+                            color: '#a5f3fc',
+                            equipment: [
+                                { id: 'eq-c1-1', name: '検査機1', type: 'equipment', x: 100, y: 100, status: 'normal', lastInspection: '2026-05-26' },
+                                { id: 'fire-c1-1', name: '消火器C1', type: 'fire_extinguisher', x: 200, y: 80, status: 'normal', lastInspection: '2026-04-08' },
+                                { id: 'outlet-c1-1', name: 'コンセント C1-1', type: 'outlet', x: 150, y: 180, status: 'error', lastInspection: '2026-05-01' }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    id: 'bldg-d',
+                    name: 'D棟',
+                    x: 450,
+                    y: 400,
+                    width: 200,
+                    height: 150,
+                    color: '#93c5fd',
+                    lines: [
+                        {
+                            id: 'line-d1',
+                            name: '梱包ライン',
+                            x: 50,
+                            y: 50,
+                            width: 280,
+                            height: 200,
+                            color: '#a5f3fc',
+                            equipment: [
+                                { id: 'eq-d1-1', name: '梱包機1', type: 'equipment', x: 110, y: 90, status: 'normal', lastInspection: '2026-05-25' },
+                                { id: 'fire-d1-1', name: '消火器D1', type: 'fire_extinguisher', x: 200, y: 70, status: 'normal', lastInspection: '2026-04-15' }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // 状態管理
+        let currentLevel = 1;
+        let currentBuildingId = null;
+        let currentLineId = null;
+        let selectedEquipmentId = null;
+
+        // ナビゲーションスタック
+        const navigationStack = [];
+
+        // 初期化
+        function init() {
+            document.getElementById('backBtn').addEventListener('click', goBack);
+            document.getElementById('panelClose').addEventListener('click', closePanel);
+            document.getElementById('overlay').addEventListener('click', closePanel);
+            
+            renderLevel1();
+        }
+
+        // レベル1: 全体俯瞰マップ
+        function renderLevel1() {
+            currentLevel = 1;
+            currentBuildingId = null;
+            currentLineId = null;
+            updateBreadcrumb('工場全体');
+            updateBackButton();
+            
+            const svg = document.getElementById('mapSvg');
+            svg.innerHTML = '';
+
+            locationData.buildings.forEach(building => {
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.classList.add('map-element');
+                group.setAttribute('data-id', building.id);
+                group.style.cursor = 'pointer';
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', building.x);
+                rect.setAttribute('y', building.y);
+                rect.setAttribute('width', building.width);
+                rect.setAttribute('height', building.height);
+                rect.setAttribute('fill', building.color);
+                rect.setAttribute('stroke', '#475569');
+                rect.setAttribute('stroke-width', '2');
+                rect.setAttribute('rx', '8');
+
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.classList.add('label');
+                label.setAttribute('x', building.x + building.width / 2);
+                label.setAttribute('y', building.y + building.height / 2);
+                label.setAttribute('dominant-baseline', 'middle');
+                label.textContent = building.name;
+
+                group.appendChild(rect);
+                group.appendChild(label);
+
+                // アラート表示
+                const hasError = checkErrorsInBuilding(building.id);
+                if (hasError) {
+                    const alertCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    alertCircle.classList.add('alert-indicator');
+                    alertCircle.setAttribute('cx', building.x + building.width - 15);
+                    alertCircle.setAttribute('cy', building.y + 15);
+                    alertCircle.setAttribute('r', '12');
+                    alertCircle.setAttribute('fill', '#ef4444');
+                    group.appendChild(alertCircle);
+                }
+
+                group.addEventListener('click', () => {
+                    navigationStack.push({ level: 1 });
+                    renderLevel2(building.id);
+                });
+
+                svg.appendChild(group);
+            });
+        }
+
+        // レベル2: 建屋詳細マップ
+        function renderLevel2(buildingId) {
+            currentLevel = 2;
+            currentBuildingId = buildingId;
+            currentLineId = null;
+            
+            const building = locationData.buildings.find(b => b.id === buildingId);
+            updateBreadcrumb(`${building.name}`);
+            updateBackButton();
+
+            const svg = document.getElementById('mapSvg');
+            svg.innerHTML = '';
+
+            building.lines.forEach(line => {
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.classList.add('map-element');
+                group.setAttribute('data-id', line.id);
+
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', line.x);
+                rect.setAttribute('y', line.y);
+                rect.setAttribute('width', line.width);
+                rect.setAttribute('height', line.height);
+                rect.setAttribute('fill', line.color);
+                rect.setAttribute('stroke', '#06b6d4');
+                rect.setAttribute('stroke-width', '2');
+                rect.setAttribute('rx', '8');
+
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.classList.add('label');
+                label.setAttribute('x', line.x + line.width / 2);
+                label.setAttribute('y', line.y + line.height / 2);
+                label.setAttribute('dominant-baseline', 'middle');
+                label.textContent = line.name;
+
+                group.appendChild(rect);
+                group.appendChild(label);
+
+                group.addEventListener('click', () => {
+                    navigationStack.push({ level: 2, buildingId });
+                    renderLevel3(buildingId, line.id);
+                });
+
+                svg.appendChild(group);
+            });
+        }
+
+        // レベル3: ライン詳細マップ
+        function renderLevel3(buildingId, lineId) {
+            currentLevel = 3;
+            currentBuildingId = buildingId;
+            currentLineId = lineId;
+            
+            const building = locationData.buildings.find(b => b.id === buildingId);
+            const line = building.lines.find(l => l.id === lineId);
+            updateBreadcrumb(`${building.name} > ${line.name}`);
+            updateBackButton();
+
+            const svg = document.getElementById('mapSvg');
+            svg.innerHTML = '';
+
+            // ライン背景
+            const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            bgRect.setAttribute('x', line.x);
+            bgRect.setAttribute('y', line.y);
+            bgRect.setAttribute('width', line.width);
+            bgRect.setAttribute('height', line.height);
+            bgRect.setAttribute('fill', line.color);
+            bgRect.setAttribute('stroke', '#06b6d4');
+            bgRect.setAttribute('stroke-width', '2');
+            bgRect.setAttribute('rx', '8');
+            svg.appendChild(bgRect);
+
+            const lineLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            lineLabel.classList.add('label');
+            lineLabel.setAttribute('x', line.x + 20);
+            lineLabel.setAttribute('y', line.y + 30);
+            lineLabel.setAttribute('font-size', '12');
+            lineLabel.setAttribute('fill', '#475569');
+            lineLabel.textContent = line.name;
+            svg.appendChild(lineLabel);
+
+            // 設備をレンダリング
+            line.equipment.forEach(eq => {
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                group.classList.add('pin');
+                group.setAttribute('data-id', eq.id);
+
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                const colors = {
+                    equipment: eq.status === 'normal' ? '#10b981' : '#ef4444',
+                    fire_extinguisher: '#f59e0b',
+                    outlet: '#8b5cf6'
+                };
+                circle.setAttribute('cx', line.x + eq.x);
+                circle.setAttribute('cy', line.y + eq.y);
+                circle.setAttribute('r', '6');
+                circle.setAttribute('fill', colors[eq.type] || '#3b82f6');
+                circle.setAttribute('stroke', 'white');
+                circle.setAttribute('stroke-width', '2');
+
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', line.x + eq.x);
+                label.setAttribute('y', line.y + eq.y + 18);
+                label.setAttribute('font-size', '11');
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('fill', '#475569');
+                label.textContent = eq.name;
+
+                group.appendChild(circle);
+                group.appendChild(label);
+
+                group.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectedEquipmentId = eq.id;
+                    openPanel(eq);
+                });
+
+                svg.appendChild(group);
+            });
+        }
+
+        // パネル操作
+        function openPanel(equipment) {
+            const panel = document.getElementById('sidePanel');
+            const overlay = document.getElementById('overlay');
+            const content = document.getElementById('panelContent');
+
+            const typeLabels = {
+                equipment: '設備',
+                fire_extinguisher: '消火器',
+                outlet: 'コンセント'
+            };
+
+            content.innerHTML = `
+                <div class="detail-row">
+                    <div class="detail-label">機器タイプ</div>
+                    <div class="detail-value">${typeLabels[equipment.type]}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">機器ID</div>
+                    <div class="detail-value">${equipment.id}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">機器名</div>
+                    <div class="detail-value">${equipment.name}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">ステータス</div>
+                    <div class="detail-value">
+                        <span class="status-badge status-${equipment.status}">
+                            ${equipment.status === 'normal' ? '正常' : '異常'}
+                        </span>
+                    </div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">最終点検日</div>
+                    <div class="detail-value">${equipment.lastInspection}</div>
+                </div>
+            `;
+
+            panel.classList.add('open');
+            overlay.classList.add('open');
+        }
+
+        function closePanel() {
+            const panel = document.getElementById('sidePanel');
+            const overlay = document.getElementById('overlay');
+            panel.classList.remove('open');
+            overlay.classList.remove('open');
+            selectedEquipmentId = null;
+        }
+
+        // ナビゲーション
+        function goBack() {
+            if (navigationStack.length === 0) return;
+
+            navigationStack.pop();
+            closePanel();
+
+            if (navigationStack.length === 0) {
+                renderLevel1();
+            } else {
+                const prev = navigationStack[navigationStack.length - 1];
+                if (prev.level === 1) {
+                    renderLevel1();
+                } else if (prev.level === 2) {
+                    renderLevel2(prev.buildingId);
+                }
+            }
+        }
+
+        // ユーティリティ
+        function updateBreadcrumb(text) {
+            document.getElementById('breadcrumb').textContent = text;
+        }
+
+        function updateBackButton() {
+            document.getElementById('backBtn').disabled = navigationStack.length === 0;
+        }
+
+        function checkErrorsInBuilding(buildingId) {
+            const building = locationData.buildings.find(b => b.id === buildingId);
+            return building.lines.some(line => 
+                line.equipment.some(eq => eq.status === 'error')
+            );
+        }
+
+        // 起動
+        init();
+    </script>
+</body>
+</html>
