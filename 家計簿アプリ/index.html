@@ -3,317 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>レシート家計簿 - 月別・支払い別集計版</title>
+    <title>レシート家計簿 - 金額特化OCR＆集計変更版</title>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
-        body {
-            font-family: sans-serif;
-            margin: 20px;
-            background-color: #f0f2f5;
-            color: #333;
-        }
-        .container {
-            max-width: 650px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
-        h1, h2 {
-            text-align: center;
-            color: #1a1a1a;
-            margin-bottom: 20px;
-        }
-        h2 {
-            font-size: 1.2em;
-            border-left: 4px solid #4dabf7;
-            padding-left: 8px;
-            text-align: left;
-            margin-top: 30px;
-        }
+        body { font-family: sans-serif; margin: 20px; background-color: #f0f2f5; color: #333; }
+        .container { max-width: 650px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1, h2 { text-align: center; color: #1a1a1a; margin-bottom: 20px; }
+        h2 { font-size: 1.2em; border-left: 4px solid #4dabf7; padding-left: 8px; text-align: left; margin-top: 30px; }
         
-        /* フィルターエリア */
-        .filter-section {
-            background: #e7f5ff;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .filter-section label {
-            font-weight: bold;
-            color: #1c7ed6;
-        }
-        .month-select {
-            padding: 6px 12px;
-            font-size: 1em;
-            border-radius: 4px;
-            border: 1px solid #74c0fc;
-        }
+        .filter-section { background: #e7f5ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .month-select { padding: 6px 12px; font-size: 1em; border-radius: 4px; border: 1px solid #74c0fc; }
 
-        /* ダッシュボードエリア */
-        .dashboard-grid {
-            display: block;
-            margin-bottom: 20px;
-        }
-        .dashboard {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-            border: 1px solid #e9ecef;
-        }
-        .dashboard-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            font-size: 0.95em;
-            color: #495057;
-        }
-        .chart-container {
-            display: flex;
-            gap: 8px;
-            flex-direction: column;
-        }
-        .chart-row {
-            display: flex;
-            align-items: center;
-            font-size: 0.85em;
-        }
-        .chart-label { width: 85px; text-grow: 0; shrink: 0; }
-        .chart-bar-bg {
-            flex-grow: 1;
-            background: #e9ecef;
-            height: 12px;
-            border-radius: 6px;
-            margin: 0 10px;
-            overflow: hidden;
-        }
-        .chart-bar {
-            height: 100%;
-            background: #4dabf7;
-            width: 0%;
-            transition: width 0.3s ease;
-        }
-        .chart-bar.payment-bar {
-            background: #37b24d;
-        }
-        .chart-value { width: 110px; text-align: right; }
+        /* ダッシュボード */
+        .dashboard { background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 15px; border: 1px solid #e9ecef; }
+        .dashboard-title { font-weight: bold; margin-bottom: 10px; font-size: 0.95em; color: #495057; }
+        .chart-row { display: flex; align-items: center; font-size: 0.85em; margin-bottom: 5px; }
+        .chart-label { width: 140px; }
+        .chart-bar-bg { flex-grow: 1; background: #e9ecef; height: 12px; border-radius: 6px; margin: 0 10px; overflow: hidden; }
+        .chart-bar { height: 100%; background: #4dabf7; width: 0%; transition: width 0.3s; }
+        .chart-bar.cashless { background: #fcc419; }
+        .chart-value { width: 120px; text-align: right; }
 
-        /* アップロードエリア */
-        .upload-section {
-            border: 2px dashed #ced4da;
-            padding: 20px;
-            text-align: center;
-            background: #f8f9fa;
-            cursor: pointer;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            transition: background 0.2s;
-        }
-        .upload-section:hover { background: #e9ecef; }
-        #preview {
-            max-width: 100%;
-            max-height: 150px;
-            display: none;
-            margin: 10px auto 0;
-            border-radius: 4px;
-        }
-        .loading {
-            display: none;
-            color: #4dabf7;
-            font-weight: bold;
-            text-align: center;
-            margin: 10px 0;
-        }
+        /* OCR撮影エリア */
+        .upload-section { border: 2px dashed #4dabf7; padding: 20px; text-align: center; background: #f1f3f5; cursor: pointer; border-radius: 8px; margin-bottom: 20px; }
+        #preview { max-width: 100%; max-height: 120px; display: none; margin: 10px auto 0; border-radius: 4px; }
+        .loading { display: none; color: #4dabf7; font-weight: bold; text-align: center; margin: 10px 0; }
 
-        /* 明細・テーブルエリア */
-        .table-container {
-            overflow-x: auto;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            font-size: 0.85em;
-        }
-        th, td {
-            border-bottom: 1px solid #dee2e6;
-            padding: 10px 4px;
-            text-align: left;
-        }
-        th { background-color: #f1f3f5; color: #495057; }
-        
-        /* 入力コントロール */
-        .input-edit {
-            width: 100%;
-            padding: 4px;
-            box-sizing: border-box;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-        }
-        .select-edit {
-            width: 100%;
-            padding: 4px;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-        }
-        .btn-delete {
-            background-color: #ffc9c9;
-            color: #fa5252;
-            border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85em;
-        }
-        .btn-delete:hover { background-color: #ffe3e3; }
+        /* テーブル */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.85em; }
+        th, td { border-bottom: 1px solid #dee2e6; padding: 10px 4px; text-align: left; }
+        th { background-color: #f1f3f5; }
+        .input-edit, .select-edit { width: 100%; padding: 4px; box-sizing: border-box; border: 1px solid #ced4da; border-radius: 4px; }
+        .btn-delete { background-color: #ffc9c9; color: #fa5252; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; }
 
-        .total-section {
-            margin-top: 20px;
-            font-size: 1.4em;
-            font-weight: bold;
-            text-align: right;
-            color: #212529;
-            padding-top: 10px;
-            border-top: 2px solid #212529;
-        }
-        .clear-storage-data {
-            text-align: center;
-            margin-top: 30px;
-        }
-        .btn-reset {
-            background: none;
-            border: none;
-            color: #aaa;
-            text-decoration: underline;
-            cursor: pointer;
-            font-size: 0.8em;
-        }
+        /* データ管理ボタン */
+        .backup-section { margin-top: 30px; padding-top: 15px; border-top: 1px dashed #ccc; display: flex; gap: 10px; justify-content: center; }
+        .btn-secondary { background: #6c757d; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85em; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>レシート家計簿 (MVP3)</h1>
+    <h1>レシート家計簿 (金額OCR特化版)</h1>
 
     <div class="filter-section">
-        <label for="month-filter">📅 表示する月を選択:</label>
-        <select id="month-filter" class="month-select">
-            </select>
+        <label for="month-filter">📅 対象月を選択:</label>
+        <select id="month-filter" class="month-select"></select>
     </div>
     
-    <div class="dashboard-grid">
-        <div class="dashboard">
-            <div class="dashboard-title">📊 項目別支出（選択月）</div>
-            <div class="chart-container" id="category-charts"></div>
-        </div>
-        <div class="dashboard">
-            <div class="dashboard-title">💳 支払い方法別（選択月）</div>
-            <div class="chart-container" id="payment-charts"></div>
-        </div>
+    <div class="dashboard">
+        <div class="dashboard-title">💳 支払いタイプ別（引き落とし額の把握用）</div>
+        <div id="payment-type-charts"></div>
     </div>
 
     <div class="upload-section" onclick="document.getElementById('receipt-input').click()">
-        <p id="upload-text">📸 タップしてレシートを撮影 / 追記</p>
+        <p id="upload-text">🔍 <b>【金額部分を拡大して】</b>撮影または画像を選択</p>
         <input type="file" id="receipt-input" accept="image/*" capture="environment" style="display: none;">
-        <img id="preview" alt="レシートプレビュー">
+        <img id="preview" alt="金額プレビュー">
     </div>
 
-    <div id="loading-text" class="loading">レシート読み取り中...</div>
+    <div id="loading-text" class="loading">画像を解析中（文字認識処理）...</div>
 
-    <h2>明細一覧（選択月分のみ表示）</h2>
+    <h2>明細一覧</h2>
     <div class="table-container">
         <table>
             <thead>
                 <tr>
                     <th style="width: 22%;">日付</th>
-                    <th style="width: 20%;">分類項目</th>
-                    <th style="width: 20%;">支払い方法</th>
-                    <th style="width: 23%;">金額 (円)</th>
+                    <th style="width: 20%;">分類</th>
+                    <th style="width: 23%;">支払い方法</th>
+                    <th style="width: 20%;">金額 (円)</th>
                     <th style="width: 15%;">操作</th>
                 </tr>
             </thead>
-            <tbody id="history-rows">
-                </tbody>
+            <tbody id="history-rows"></tbody>
         </table>
     </div>
 
-    <div class="total-section">
-        選択月の合計: <span id="total-amount">0</span> 円
-    </div>
-
-    <div class="clear-storage-data">
-        <button class="btn-reset" onclick="resetData()">データを初期化する</button>
+    <div class="backup-section">
+        <button class="btn-secondary" onclick="exportJSON()">データをファイルに保存(JSON)</button>
+        <button class="btn-secondary" onclick="document.getElementById('import-input').click()">データを復元</button>
+        <input type="file" id="import-input" accept=".json" style="display: none;" onchange="importJSON(this)">
     </div>
 </div>
 
 <script>
-    // 定義データ
     const CATEGORIES = ["食費", "ガソリン代", "日用品", "嗜好品", "その他"];
     const PAYMENTS = ["現金", "クレジットカード", "楽天ペイ", "その他"];
 
-    // ローカルストレージからデータを読み込む、無ければ初期サンプルを設定
-    let state = JSON.parse(localStorage.getItem('receipt_kakeibo_data'));
-    
-    if (!state || !state.items || state.items.length === 0) {
-        state = {
-            items: [
-                { id: 1, date: "2026-06-14", category: "食費", payment: "楽天ペイ", amount: 9389 },
-                { id: 2, date: "2026-06-13", category: "ガソリン代", payment: "クレジットカード", amount: 5807 }
-            ]
-        };
-        saveState();
-    }
-
-    // 現在選択されている年月（初期値は最新データの月、または現在の月）
-    let currentSelectedMonth = "2026-06"; 
+    // 1. ローカルストレージから復元（無ければ空）
+    let state = JSON.parse(localStorage.getItem('receipt_kakeibo_ocr_data')) || { items: [] };
+    let currentSelectedMonth = new Date().toISOString().substring(0, 7); 
 
     const receiptInput = document.getElementById('receipt-input');
     const preview = document.getElementById('preview');
     const loadingText = document.getElementById('loading-text');
     const historyRows = document.getElementById('history-rows');
-    const totalAmount = document.getElementById('total-amount');
-    const uploadText = document.getElementById('upload-text');
-    const categoryCharts = document.getElementById('category-charts');
-    const paymentCharts = document.getElementById('payment-charts');
     const monthFilter = document.getElementById('month-filter');
+    const paymentTypeCharts = document.getElementById('payment-type-charts');
 
-    // データのローカルストレージ保存
     function saveState() {
-        localStorage.setItem('receipt_kakeibo_data', JSON.stringify(state));
+        localStorage.setItem('receipt_kakeibo_ocr_data', JSON.stringify(state));
     }
 
-    // 利用可能な年月リストを自動生成してフィルターを更新
+    // 月選択フィルターの更新
     function updateMonthFilterOptions() {
-        // 全データから年月(YYYY-MM)を抽出して重複を排除
         const months = state.items.map(item => item.date.substring(0, 7));
-        // 現在の月も候補に入れておく
-        const thisMonth = new Date().toISOString().substring(0, 7);
-        months.push(thisMonth);
+        months.push(new Date().toISOString().substring(0, 7));
+        const uniqueMonths = [...new Set(months)].sort((a, b) => b.localeCompare(a));
         
-        const uniqueMonths = [...new Set(months)].sort((a, b) => b.localeCompare(a)); // 新しい順
-
         monthFilter.innerHTML = '';
         uniqueMonths.forEach(m => {
             const option = document.createElement('option');
             option.value = m;
-            // 見た目を「2026年06月」にする
-            const parts = m.split('-');
-            option.textContent = `${parts[0]}年${parts[1]}月`;
+            option.textContent = `${m.split('-')[0]}年${m.split('-')[1]}月`;
             if (m === currentSelectedMonth) option.selected = true;
             monthFilter.appendChild(option);
         });
     }
 
-    // 月フィルターが変更された時
-    monthFilter.addEventListener('change', function(e) {
-        currentSelectedMonth = e.target.value;
-        render();
-    });
+    monthFilter.addEventListener('change', (e) => { currentSelectedMonth = e.target.value; render(); });
 
-    // 写真撮影・追加時のイベント
+    // 2. 実際のOCR読み取り処理
     receiptInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -322,87 +134,66 @@
         reader.onload = function(event) {
             preview.src = event.target.result;
             preview.style.display = 'block';
-            uploadText.textContent = "🔄 別の写真を撮る / 追記する";
         };
         reader.readAsDataURL(file);
 
         loadingText.style.display = 'block';
-        
-        setTimeout(() => {
+
+        // Tesseract.jsによる本物の文字認識(数字のみに限定して精度向上)
+        Tesseract.recognize(file, 'eng', {
+            tessedit_char_whitelist: '0123456789,.' // 数字とカンマ・ドットだけを狙い撃ち
+        }).then(({ data: { text } }) => {
             loadingText.style.display = 'none';
             
-            // 💡 擬似的な読み取り分岐：
-            // 新しく撮影された場合、ランダムにガソリン代か食費かをシミュレートして追加します
-            const rand = Math.random();
-            let dummyAmount, dummyCat, dummyPay;
-            
-            if (rand > 0.5) {
-                dummyAmount = Math.floor(Math.random() * 4000) + 3000;
-                dummyCat = "ガソリン代";
-                dummyPay = "クレジットカード";
-            } else {
-                dummyAmount = Math.floor(Math.random() * 3000) + 500;
-                dummyCat = "日用品";
-                dummyPay = "現金";
-            }
-            
-            // 選択されている月に合わせた日付で登録
-            const todayDay = new Date().toISOString().split('T')[0].substring(8, 10);
-            const dummyDate = `${currentSelectedMonth}-${todayDay}`;
-            
+            // 読み取った文字列から数字だけを取り出す加工
+            let cleanedText = text.replace(/[^0-9]/g, ''); 
+            let parsedAmount = parseInt(cleanedText, 10) || 0;
+
+            // 新しい明細を追加
+            const today = new Date().toISOString().split('T')[0];
             const newItem = {
                 id: Date.now(),
-                date: dummyDate,
-                category: dummyCat,
-                payment: dummyPay,
-                amount: dummyAmount
+                date: today,
+                category: "その他",
+                payment: "現金",
+                amount: parsedAmount
             };
-
             state.items.push(newItem);
+            currentSelectedMonth = today.substring(0, 7);
             saveState();
             render();
-        }, 1200);
+        }).catch(err => {
+            console.error(err);
+            loadingText.textContent = "読み取り失敗。手動で入力してください。";
+        });
     });
 
-    // メイン描画処理
+    // 3. レンダリングと集計ロジック（現金 vs カード引き落とし対象）
     function render() {
-        // 月フィルターの選択肢をリフレッシュ
         updateMonthFilterOptions();
-
         historyRows.innerHTML = '';
-        let total = 0;
 
-        // 集計用カウンターの初期化
-        const categoryTotals = {};
-        CATEGORIES.forEach(cat => categoryTotals[cat] = 0);
-        const paymentTotals = {};
-        PAYMENTS.forEach(p => paymentTotals[p] = 0);
+        let cashTotal = 0;      // 現金
+        let cashlessTotal = 0;  // それ以外（クレカ・Pay払いなど＝最終的なカード引き落とし対象）
 
-        // 選択された月のデータのみをフィルタリング
         const filteredItems = state.items.filter(item => item.date.startsWith(currentSelectedMonth));
-
-        // 日付順にソート（降順：新しい日付が上）
         filteredItems.sort((a, b) => b.date.localeCompare(a.date));
 
         filteredItems.forEach((item) => {
-            total += item.amount;
-            categoryTotals[item.category] += item.amount;
-            paymentTotals[item.payment] += item.amount;
+            // 新しい集計ルールに基づいて分類
+            if (item.payment === "現金") {
+                cashTotal += item.amount;
+            } else {
+                cashlessTotal += item.amount;
+            }
 
             const tr = document.createElement('tr');
-            
-            // 分類項目のセレクト
             let catSelect = `<select class="select-edit" onchange="updateCategory(${item.id}, this.value)">`;
-            CATEGORIES.forEach(cat => {
-                catSelect += `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`;
-            });
+            CATEGORIES.forEach(cat => catSelect += `<option value="${cat}" ${cat === item.category ? 'selected' : ''}>${cat}</option>`);
             catSelect += `</select>`;
 
-            // 支払い方法のセレクト
             let paySelect = `<select class="select-edit" onchange="updatePayment(${item.id}, this.value)">`;
-            PAYMENTS.forEach(p => {
-                paySelect += `<option value="${p}" ${p === item.payment ? 'selected' : ''}>${p}</option>`;
-            });
+            PAYMENTS.forEach(p => paySelect += `<option value="${p}" ${p === item.payment ? 'selected' : ''}>${p}</option>`);
             paySelect += `</select>`;
 
             tr.innerHTML = `
@@ -415,78 +206,68 @@
             historyRows.appendChild(tr);
         });
 
-        // 合計額の表示
-        totalAmount.textContent = total.toLocaleString();
+        // ダッシュボード表示の更新
+        const grandTotal = cashTotal + cashlessTotal;
+        const cashPercent = grandTotal > 0 ? Math.round((cashTotal / grandTotal) * 100) : 0;
+        const cashlessPercent = grandTotal > 0 ? Math.round((cashlessTotal / grandTotal) * 100) : 0;
 
-        // グラフの描画: 項目別
-        categoryCharts.innerHTML = '';
-        CATEGORIES.forEach(cat => {
-            const amt = categoryTotals[cat];
-            const percent = total > 0 ? Math.round((amt / total) * 100) : 0;
-            categoryCharts.appendChild(createChartRow(cat, amt, percent, ''));
-        });
-
-        // グラフの描画: 支払い方法別
-        paymentCharts.innerHTML = '';
-        PAYMENTS.forEach(p => {
-            const amt = paymentTotals[p];
-            const percent = total > 0 ? Math.round((amt / total) * 100) : 0;
-            paymentCharts.appendChild(createChartRow(p, amt, percent, 'payment-bar'));
-        });
-    }
-
-    // グラフ一行のDOMを生成するヘルパー関数
-    function createChartRow(label, amount, percent, extraClass) {
-        const row = document.createElement('div');
-        row.className = 'chart-row';
-        row.innerHTML = `
-            <div class="chart-label">${label}</div>
-            <div class="chart-bar-bg">
-                <div class="chart-bar ${extraClass}" style="width: ${percent}%;"></div>
+        paymentTypeCharts.innerHTML = `
+            <div class="chart-row">
+                <div class="chart-label">💵 現金合計</div>
+                <div class="chart-bar-bg"><div class="chart-bar" style="width: ${cashPercent}%;"></div></div>
+                <div class="chart-value">${cashTotal.toLocaleString()}円 (${cashPercent}%)</div>
             </div>
-            <div class="chart-value">${amount.toLocaleString()}円 (${percent}%)</div>
+            <div class="chart-row">
+                <div class="chart-label">💳 カード・Pay引き落とし</div>
+                <div class="chart-bar-bg"><div class="chart-bar cashless" style="width: ${customMax(cashlessPercent)}%;"></div></div>
+                <div class="chart-value"><b>${cashlessTotal.toLocaleString()}円</b> (${cashlessPercent}%)</div>
+            </div>
+            <div style="text-align:right; font-weight:bold; margin-top:10px; font-size:1.1em;">月間総合計: ${grandTotal.toLocaleString()} 円</div>
         `;
-        return row;
     }
 
-    // --- データ編集関数群 ---
-    function updateAmount(id, value) {
-        const item = state.items.find(i => i.id === id);
-        if (item) { item.amount = Number(value) || 0; saveState(); render(); }
-    }
-    function updateCategory(id, value) {
-        const item = state.items.find(i => i.id === id);
-        if (item) { item.category = value; saveState(); render(); }
-    }
-    function updatePayment(id, value) {
-        const item = state.items.find(i => i.id === id);
-        if (item) { item.payment = value; saveState(); render(); }
-    }
-    function updateDate(id, value) {
-        const item = state.items.find(i => i.id === id);
-        if (item) { 
-            item.date = value; 
-            // 編集された日付の月に自動で切り替える
-            currentSelectedMonth = value.substring(0, 7);
-            saveState(); 
-            render(); 
-        }
-    }
-    function deleteItem(id) {
-        state.items = state.items.filter(i => i.id !== id);
-        saveState();
-        render();
-    }
-    function resetData() {
-        if(confirm("すべてのデータをリセットして最初の状態に戻しますか？")) {
-            localStorage.removeItem('receipt_kakeibo_data');
-            location.reload();
-        }
+    function customMax(val) { return val > 100 ? 100 : val; }
+
+    // データ変更関数
+    function updateAmount(id, val) { const item = state.items.find(i => i.id === id); if(item){ item.amount = Number(val)||0; saveState(); render(); }}
+    function updateCategory(id, val) { const item = state.items.find(i => i.id === id); if(item){ item.category = val; saveState(); render(); }}
+    function updatePayment(id, val) { const item = state.items.find(i => i.id === id); if(item){ item.payment = val; saveState(); render(); }}
+    function updateDate(id, val) { const item = state.items.find(i => i.id === id); if(item){ item.date = val; currentSelectedMonth = val.substring(0,7); saveState(); render(); }}
+    function deleteItem(id) { state.items = state.items.filter(i => i.id !== id); saveState(); render(); }
+
+    // 4. データのエクスポート(JSONファイルとして手動ダウンロード)
+    function exportJSON() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `kakeibo_backup_${currentSelectedMonth}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
     }
 
-    // 初回描画
+    // 5. データのインポート(JSONファイルを読み込んで上書き復元)
+    function importJSON(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const imported = JSON.parse(e.target.result);
+                if (imported && imported.items) {
+                    state = imported;
+                    saveState();
+                    render();
+                    alert("データを復元しました！");
+                }
+            } catch (err) {
+                alert("ファイルの読み込みに失敗しました。正しいJSONファイルかご確認ください。");
+            }
+        };
+        reader.readAsText(file);
+    }
+
     render();
 </script>
-
 </body>
 </html>
