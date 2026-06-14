@@ -1,1 +1,1013 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マイホーム資金計画シミュレーター</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #16a085;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-color: #2d3748;
+            --danger-color: #e53e3e;
+            --warning-color: #dd6b20;
+        }
 
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding-bottom: 60px;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .summary-banner {
+            position: sticky;
+            top: 0;
+            background-color: #fff;
+            border-bottom: 2px solid var(--accent-color);
+            padding: 15px 20px;
+            z-index: 100;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            text-align: center;
+        }
+
+        .summary-item {
+            padding: 5px;
+        }
+
+        .summary-item label {
+            font-size: 12px;
+            color: #718096;
+            display: block;
+            margin-bottom: 2px;
+            font-weight: bold;
+        }
+
+        .summary-item span {
+            font-size: 22px;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .summary-item span.highlight {
+            color: var(--accent-color);
+        }
+
+        .summary-item span.alert {
+            color: var(--danger-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid var(--border-color);
+            margin-bottom: 20px;
+            background: #fff;
+            border-radius: 6px 6px 0 0;
+            overflow: hidden;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: #edf2f7;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: bold;
+            color: #4a5568;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .tab-btn:not(:last-child) {
+            border-right: 1px solid var(--border-color);
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: var(--accent-color);
+            border-bottom: 2px solid var(--accent-color);
+            margin-bottom: -2px;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .grid-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media(min-width: 900px) {
+            .grid-layout {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid var(--border-color);
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            font-size: 18px;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            border-left: 4px solid var(--accent-color);
+            padding-left: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #4a5568;
+        }
+
+        .form-group .description {
+            font-size: 11px;
+            color: #718096;
+            margin-bottom: 5px;
+            margin-top: -2px;
+        }
+
+        .input-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-size: 15px;
+            transition: border-color 0.2s;
+        }
+
+        .input-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        select.input-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 1em;
+            padding-right: 30px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .checkbox-group:hover {
+            background: #f7fafc;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 12px;
+            cursor: pointer;
+            accent-color: var(--accent-color);
+        }
+
+        .checkbox-group label {
+            flex: 1;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .checkbox-group .item-cost {
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-left: 10px;
+        }
+
+        .cost-input-inline {
+            width: 110px;
+            padding: 4px 8px;
+            border: 1px solid #cbd5e0;
+            border-radius: 4px;
+            text-align: right;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+
+        .preset-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .preset-btn {
+            background: #edf2f7;
+            border: 1px solid #cbd5e0;
+            padding: 6px 12px;
+            font-size: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: #e2e8f0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background-color: #f7fafc;
+            color: #4a5568;
+            font-weight: bold;
+        }
+
+        td.num, th.num {
+            text-align: right;
+        }
+
+        .table-total-row {
+            font-weight: bold;
+            background-color: #edf2f7;
+        }
+
+        .loan-comparison-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .loan-card {
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            background: #fff;
+            transition: border-color 0.2s;
+            position: relative;
+        }
+
+        .loan-card.recommended {
+            border-color: var(--accent-color);
+        }
+
+        .loan-card.recommended::before {
+            content: "おすすめベース";
+            position: absolute;
+            top: -12px;
+            right: 15px;
+            background: var(--accent-color);
+            color: white;
+            padding: 2px 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .loan-card h3 {
+            margin-bottom: 15px;
+            color: var(--primary-color);
+            font-size: 16px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 5px;
+        }
+
+        .loan-metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .loan-metric .val {
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .loan-metric .val.total {
+            color: var(--accent-color);
+            font-size: 18px;
+        }
+
+        .alert-box {
+            background-color: #fffaf0;
+            border-left: 4px solid var(--warning-color);
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+
+        .alert-box h4 {
+            color: var(--warning-color);
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .alert-box ul {
+            padding-left: 20px;
+        }
+
+        .card-total-display {
+            text-align: right;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 15px;
+            padding-top: 10px;
+            border-top: 1px dashed var(--border-color);
+            color: var(--accent-color);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>マイホーム総合資金計画シミュレーター</h1>
+    </header>
+
+    <!-- 常に上部に固定されるリアルタイムカウンター -->
+    <div class="summary-banner">
+        <div class="summary-item">
+            <label>総合計金額 (税込)</label>
+            <span id="banner-total-cost">0 円</span>
+        </div>
+        <div class="summary-item">
+            <label>必要借入額 (総額－自己資金)</label>
+            <span id="banner-loan-amount" class="highlight">0 円</span>
+        </div>
+        <div class="summary-item">
+            <label>毎月返済目安 (変動金利想定)</label>
+            <span id="banner-monthly-payment">0 円/月</span>
+        </div>
+        <div class="summary-item">
+            <label>返済比率 (年収基準)</label>
+            <span id="banner-repayment-ratio">0 %</span>
+        </div>
+    </div>
+
+    <div class="container">
+        
+        <!-- タブ切り替えボタン -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tab-base')">STEP 1: 基本条件・土地連携</button>
+            <button class="tab-btn" onclick="switchTab('tab-details')">STEP 2: 建築・諸経費（29項目）</button>
+            <button class="tab-btn" onclick="switchTab('tab-loan')">STEP 3: 返済計画・比較</button>
+        </div>
+
+        <!-- タブ1: 基本条件・土地連携 -->
+        <div id="tab-base" class="tab-content active">
+            <div class="grid-layout">
+                <!-- 土地情報連携 -->
+                <div class="card">
+                    <h2>土地情報の選択・連携</h2>
+                    <p class="form-group" style="font-size: 13px; color: #718096; margin-bottom: 15px;">
+                        検討中の土地情報を選択すると、売買価格やインフラ状況、仲介手数料が自動計算されて29項目に反映されます。
+                    </p>
+                    <div class="form-group">
+                        <label>検討中の土地パターンを選択</label>
+                        <select id="land-preset" class="input-control" onchange="applyLandPreset()">
+                            <option value="custom">手入力（カスタム設定）</option>
+                            <option value="preset1" selected>候補地A：都市部分譲地 (2,480万円・都市ガス・本下水・地盤優良)</option>
+                            <option value="preset2">候補地B：郊外広大土地 (1,500万円・プロパン・浄化槽・造成要・地盤弱)</option>
+                            <option value="preset3">候補地C：古家ありまちなか土地 (1,980万円・都市ガス・本下水・解体要)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>土地売買価格 (円)</label>
+                        <input type="number" id="input-land-price" class="input-control" value="24800000" oninput="calculateAll()">
+                    </div>
+                    <div class="form-group">
+                        <label>ガス供給方式</label>
+                        <select id="input-land-gas" class="input-control" onchange="calculateAll()">
+                            <option value="city">都市ガス (引き込み・配管工事あり)</option>
+                            <option value="lpg">プロパンガス (基本無償または配管のみ)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>排水方式</label>
+                        <select id="input-land-water" class="input-control" onchange="calculateAll()">
+                            <option value="public">公共下水 (本管接続)</option>
+                            <option value="septic">浄化槽設置が必要</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>土地の現況・地盤予測</label>
+                        <select id="input-land-status" class="input-control" onchange="calculateAll()">
+                            <option value="good">更地・地盤良好 (調査のみ)</option>
+                            <option value="bad">地盤軟弱の懸念あり (地盤改良必要)</option>
+                            <option value="reclaim">要造成工事・高低差あり</option>
+                            <option value="oldhouse">古家あり (滅失登記・解体工事必要)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- 建物・自己資金基本設定 -->
+                <div class="card">
+                    <h2>建物プラン・自己資金設定</h2>
+                    <div class="form-group">
+                        <label>想定延床面積 (坪)</label>
+                        <input type="number" id="input-building-tsubo" class="input-control" value="35" oninput="calculateAll()">
+                    </div>
+                    <div class="form-group">
+                        <label>想定建物坪単価 (円/坪・税抜)</label>
+                        <input type="number" id="input-tsubo-price" class="input-control" value="750000" oninput="calculateAll()">
+                    </div>
+                    <div class="form-group">
+                        <label>自己資金（頭金） (円)</label>
+                        <input type="number" id="input-down-payment" class="input-control" value="5000000" oninput="calculateAll()">
+                    </div>
+                    <div class="form-group">
+                        <label>世帯合算年収 (円) ※返済比率判定用</label>
+                        <input type="number" id="input-annual-income" class="input-control" value="7000000" oninput="calculateAll()">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert-box">
+                <h4>💡 資金計画のポイント</h4>
+                <p>パンフレット記載の通り、「総額」を早い段階で可視化することが極めて重要です。土地価格だけでなく、建築諸経費やローン手数料をすべて足し合わせた上で、次の「STEP 2」で詳細をカスタマイズしてください。</p>
+            </div>
+        </div>
+
+        <!-- タブ2: 建築・諸経費（29項目） -->
+        <div id="tab-details" class="tab-content">
+            <div class="alert-box" style="background-color: #f0f7f4; border-left-color: var(--accent-color);">
+                <h4>📋 29の資金計画項目</h4>
+                <p>チェックを入れた項目が総額に計上されます。計算式で求められるものは、STEP1の条件から自動算出されています。必要に応じて金額を直接書き換えることも可能です。</p>
+            </div>
+
+            <div class="grid-layout">
+                <!-- 左カラム: STEP 01〜03 -->
+                <div>
+                    <!-- STEP 01 建築工事費 -->
+                    <div class="card">
+                        <h2>【STEP 01】建築工事費</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m01" checked onchange="calculateAll()">
+                            <label for="cb-m01">01. 請負工事金額 (本体・税込)</label>
+                            <input type="number" id="val-m01" class="cost-input-inline" readonly>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m02" checked onchange="calculateAll()">
+                            <label for="cb-m02">02. 共通仮設工事費</label>
+                            <input type="number" id="val-m02" class="cost-input-inline" value="500000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m03" checked onchange="calculateAll()">
+                            <label for="cb-m03">03. 屋外工事A (ガス配管工事)</label>
+                            <input type="number" id="val-m03" class="cost-input-inline" value="300000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m04" checked onchange="calculateAll()">
+                            <label for="cb-m04">04. 建築確認・申請費用</label>
+                            <input type="number" id="val-m04" class="cost-input-inline" value="400000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m05" checked onchange="calculateAll()">
+                            <label for="cb-m05">05. カーテン・照明工事費</label>
+                            <input type="number" id="val-m05" class="cost-input-inline" value="300000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m06" onchange="calculateAll()">
+                            <label for="cb-m06">06. 各種オプション・アップグレード</label>
+                            <input type="number" id="val-m06" class="cost-input-inline" value="1000000" oninput="calculateAll()">
+                        </div>
+                        <div class="card-total-display" id="total-step1">STEP01 小計: 0 円</div>
+                    </div>
+
+                    <!-- STEP 02 税金・登記 -->
+                    <div class="card">
+                        <h2>【STEP 02】税金・登記費用</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m07" checked onchange="calculateAll()">
+                            <label for="cb-m07">07. 印紙税 (建物請負契約書)</label>
+                            <input type="number" id="val-m07" class="cost-input-inline" value="10000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m08" onchange="calculateAll()">
+                            <label for="cb-m08">08. 不動産取得税 (建物分・概算)</label>
+                            <input type="number" id="val-m08" class="cost-input-inline" value="0" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m09" checked onchange="calculateAll()">
+                            <label for="cb-m09">09. 登記費用 (表示・保存・司法書士)</label>
+                            <input type="number" id="val-m09" class="cost-input-inline" value="250000" oninput="calculateAll()">
+                        </div>
+                        <div class="card-total-display" id="total-step2">STEP02 小計: 0 円</div>
+                    </div>
+
+                    <!-- STEP 03 住宅ローン経費 -->
+                    <div class="card">
+                        <h2>【STEP 03】住宅ローン関係経費</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m10" checked onchange="calculateAll()">
+                            <label for="cb-m10">10. 印紙税 (金銭消費貸借契約書)</label>
+                            <input type="number" id="val-m10" class="cost-input-inline" value="20000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m11" checked onchange="calculateAll()">
+                            <label for="cb-m11">11. 融資手数料 (借入額×2.2%等)</label>
+                            <input type="number" id="val-m11" class="cost-input-inline" readonly>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m12" checked onchange="calculateAll()">
+                            <label for="cb-m12">12. 特約火災保険料 (5年一括目安)</label>
+                            <input type="number" id="val-m12" class="cost-input-inline" value="250000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m13" checked onchange="calculateAll()">
+                            <label for="cb-m13">13. 特約地震保険料</label>
+                            <input type="number" id="val-m13" class="cost-input-inline" value="50000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m14" onchange="calculateAll()">
+                            <label for="cb-m14">14. 団体信用生命保険料 (特約分等)</label>
+                            <input type="number" id="val-m14" class="cost-input-inline" value="0" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m15" onchange="calculateAll()">
+                            <label for="cb-m15">15. 保証料 (一括払い選択時)</label>
+                            <input type="number" id="val-m15" class="cost-input-inline" value="0" oninput="calculateAll()">
+                        </div>
+                        <div class="card-total-display" id="total-step3">STEP03 小計: 0 円</div>
+                    </div>
+                </div>
+
+                <!-- 右カラム: STEP 04〜05、その他 -->
+                <div>
+                    <!-- STEP 04 申請費用 -->
+                    <div class="card">
+                        <h2>【STEP 04】各種申請費用</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m16" onchange="calculateAll()">
+                            <label for="cb-m16">16. 分筆・合筆登記費用</label>
+                            <input type="number" id="val-m16" class="cost-input-inline" value="300000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m17" onchange="calculateAll()">
+                            <label for="cb-m17">17. 開発申請・農地転用費用</label>
+                            <input type="number" id="val-m17" class="cost-input-inline" value="400000" oninput="calculateAll()">
+                        </div>
+                        <div class="card-total-display" id="total-step4">STEP04 小計: 0 円</div>
+                    </div>
+
+                    <!-- STEP 05 土地購入費・付帯工事 -->
+                    <div class="card">
+                        <h2>【STEP 05】土地購入費用・敷地工事</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m18" checked onchange="calculateAll()">
+                            <label for="cb-m18">18. 土地売買価格 (本体)</label>
+                            <input type="number" id="val-m18" class="cost-input-inline" readonly>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m19" checked onchange="calculateAll()">
+                            <label for="cb-m19">19. 印紙税 (土地売買契約書)</label>
+                            <input type="number" id="val-m19" class="cost-input-inline" value="10000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m20" checked onchange="calculateAll()">
+                            <label for="cb-m20">20. 土地仲介手数料 (自動計算)</label>
+                            <input type="number" id="val-m20" class="cost-input-inline" readonly>
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m21" checked onchange="calculateAll()">
+                            <label for="cb-m21">21. 所有権移転登記費用</label>
+                            <input type="number" id="val-m21" class="cost-input-inline" value="150000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m22" checked onchange="calculateAll()">
+                            <label for="cb-m22">22. 水道給水分担金</label>
+                            <input type="number" id="val-m22" class="cost-input-inline" value="200000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m23" checked onchange="calculateAll()">
+                            <label for="cb-m23">23. 屋外給排水接続工事費</label>
+                            <input type="number" id="val-m23" class="cost-input-inline" value="500000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m24" checked onchange="calculateAll()">
+                            <label for="cb-m24">24. 地鎮祭・上棟式費用</label>
+                            <input type="number" id="val-m24" class="cost-input-inline" value="100000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m25" onchange="calculateAll()">
+                            <label for="cb-m25">25. 造成工事・土留め・解体費</label>
+                            <input type="number" id="val-m25" class="cost-input-inline" value="1000000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m26" checked onchange="calculateAll()">
+                            <label for="cb-m26">26. 外構工事・造園費 (予算取り)</label>
+                            <input type="number" id="val-m26" class="cost-input-inline" value="2000000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m27" checked onchange="calculateAll()">
+                            <label for="cb-m27">27. 地盤調査・地盤改良工事費</label>
+                            <input type="number" id="val-m27" class="cost-input-inline" value="100000" oninput="calculateAll()">
+                        </div>
+                        <div class="card-total-display" id="total-step5">STEP05 小計: 0 円</div>
+                    </div>
+
+                    <!-- その他経費 -->
+                    <div class="card">
+                        <h2>その他・引越し生活費用</h2>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m28" checked onchange="calculateAll()">
+                            <label for="cb-m28">28. エアコン・家具・引越し費用</label>
+                            <input type="number" id="val-m28" class="cost-input-inline" value="600000" oninput="calculateAll()">
+                        </div>
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="cb-m29" checked onchange="calculateAll()">
+                            <label for="cb-m29">29. 銀行つなぎ融資金利・手数料</label>
+                            <input type="number" id="val-m29" class="cost-input-inline" value="250000" oninput="calculateAll()">
+                        </div>
+                        <div class="card-total-display" id="total-other">その他 小計: 0 円</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- タブ3: 返済計画・比較 -->
+        <div id="tab-loan" class="tab-content">
+            <div class="card">
+                <h2>融資・返済計画シミュレーション (image_11.pngを再現)</h2>
+                <p style="font-size: 14px; color: #4a5568; margin-bottom: 20px;">
+                    算出された総費用をベースに、異なる金利タイプや返済期間でシミュレーションを行います。
+                </p>
+                
+                <div class="loan-comparison-grid">
+                    <!-- プランA -->
+                    <div class="loan-card recommended">
+                        <h3>プランA: 変動金利（標準）</h3>
+                        <div class="loan-metric">
+                            <span>借入総額</span>
+                            <span class="val calc-loan-amt">0 円</span>
+                        </div>
+                        <div class="loan-metric">
+                            <span>想定金利</span>
+                            <span class="val">0.47 %</span>
+                        </div>
+                        <div class="loan-metric">
+                            <span>返済期間</span>
+                            <span class="val">35 年</span>
+                        </div>
+                        <div class="loan-metric" style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
+                            <span>毎月返済額</span>
+                            <span class="val total" id="loanA-monthly">0 円</span>
+                        </div>
+                    </div>
+
+                    <!-- プランB -->
+                    <div class="loan-card">
+                        <h3>プランB: 固定金利（フラット35等）</h3>
+                        <div class="loan-metric">
+                            <span>借入総額</span>
+                            <span class="val calc-loan-amt">0 円</span>
+                        </div>
+                        <div class="loan-metric">
+                            <span>想定金利</span>
+                            <span class="val">1.85 %</span>
+                        </div>
+                        <div class="loan-metric">
+                            <span>返済期間</span>
+                            <span class="val">35 年</span>
+                        </div>
+                        <div class="loan-metric" style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
+                            <span>毎月返済額</span>
+                            <span class="val total" id="loanB-monthly">0 円</span>
+                        </div>
+                    </div>
+
+                    <!-- プランC -->
+                    <div class="loan-card">
+                        <h3>プランC: 変動金利（短期25年返済）</h3>
+                        <div class="loan-metric">
+                            <span>借入総額</span>
+                            <span class="val calc-loan-amt">0 円</span>
+                        </div>
+                        <div class="loan-metric">
+                            <span>想定金利</span>
+                            <span class="val">0.47 %</span>
+                        </div>
+                        <div class="loan-metric">
+                            <span>返済期間</span>
+                            <span class="val">25 年</span>
+                        </div>
+                        <div class="loan-metric" style="margin-top: 15px; padding-top: 10px; border-top: 1px dashed #e2e8f0;">
+                            <span>毎月返済額</span>
+                            <span class="val total" id="loanC-monthly">0 円</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 全項目サマリーテーブル -->
+            <div class="card" style="overflow-x: auto;">
+                <h2>資金計画内訳明細一覧</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>分類</th>
+                            <th>項番・項目名</th>
+                            <th class="num">金額 (円)</th>
+                            <th>計算方法 / 状態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="summary-table-body">
+                        <!-- JSで動的生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // タブ切り替えロジック
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // 土地プリセットデータ
+        const landPresets = {
+            preset1: { price: 24800000, gas: 'city', water: 'public', status: 'good' },
+            preset2: { price: 15000000, gas: 'lpg', water: 'septic', status: 'reclaim' },
+            preset3: { price: 19800000, gas: 'city', water: 'public', status: 'oldhouse' }
+        };
+
+        function applyLandPreset() {
+            const select = document.getElementById('land-preset').value;
+            if (select === 'custom') return;
+
+            const data = landPresets[select];
+            document.getElementById('input-land-price').value = data.price;
+            document.getElementById('input-land-gas').value = data.gas;
+            document.getElementById('input-land-water').value = data.water;
+            document.getElementById('input-land-status').value = data.status;
+
+            calculateAll();
+        }
+
+        // PMT関数 (毎月のローン返済計算)
+        function calculatePMT(principal, annualRate, years) {
+            if (principal <= 0) return 0;
+            const monthlyRate = (annualRate / 100) / 12;
+            const numberOfPayments = years * 12;
+            if (monthlyRate === 0) return principal / numberOfPayments;
+            return (principal * monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) / (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
+        }
+
+        // 通貨フォーマット
+        function formatYen(num) {
+            return new Intl.NumberFormat('ja-JP').format(Math.round(num)) + " 円";
+        }
+
+        // メイン計算ロジック
+        function calculateAll() {
+            // STEP1の入力値取得
+            const landPrice = parseFloat(document.getElementById('input-land-price').value) || 0;
+            const tsubo = parseFloat(document.getElementById('input-building-tsubo').value) || 0;
+            const tsuboPrice = parseFloat(document.getElementById('input-tsubo-price').value) || 0;
+            const downPayment = parseFloat(document.getElementById('input-down-payment').value) || 0;
+            const annualIncome = parseFloat(document.getElementById('input-annual-income').value) || 0;
+
+            const gasType = document.getElementById('input-land-gas').value;
+            const waterType = document.getElementById('input-land-water').value;
+            const landStatus = document.getElementById('input-land-status').value;
+
+            // 連動項目の自動計算
+            // 01. 請負金額 = 坪数 × 坪単価 × 1.1 (消費税)
+            const contractPrice = tsubo * tsuboPrice * 1.1;
+            document.getElementById('val-m01').value = Math.round(contractPrice);
+
+            // 03. ガス工事連動
+            if (gasType === 'lpg') {
+                document.getElementById('val-m03').value = 0; // プロパンは基本0円枠
+            } else if (document.activeElement !== document.getElementById('val-m03')) {
+                document.getElementById('val-m03').value = 300000;
+            }
+
+            // 23. 給排水工事連動
+            if (waterType === 'septic' && document.activeElement !== document.getElementById('val-m23')) {
+                document.getElementById('val-m23').value = 900000; // 浄化槽設置は高め
+            } else if (waterType === 'public' && document.activeElement !== document.getElementById('val-m23')) {
+                document.getElementById('val-m23').value = 500000;
+            }
+
+            // 09, 25, 27. 土地現況連動
+            if (landStatus === 'good') {
+                document.getElementById('val-m09').value = 250000;
+                document.getElementById('val-m25').value = 0;
+                document.getElementById('val-m27').value = 100000;
+            } else if (landStatus === 'bad') {
+                document.getElementById('val-m09').value = 250000;
+                document.getElementById('val-m25').value = 0;
+                document.getElementById('val-m27').value = 1000000; // 地盤改良費追加
+            } else if (landStatus === 'reclaim') {
+                document.getElementById('val-m09').value = 250000;
+                document.getElementById('val-m25').value = 1500000; // 造成費用追加
+                document.getElementById('val-m27').value = 100000;
+            } else if (landStatus === 'oldhouse') {
+                document.getElementById('val-m09').value = 300000; // 滅失登記分上乗せ
+                document.getElementById('val-m25').value = 1800000; // 解体費用
+                document.getElementById('val-m27').value = 100000;
+            }
+
+            // 18. 土地売買価格直接連動
+            document.getElementById('val-m18').value = landPrice;
+
+            // 20. 土地仲介手数料 = (価格 × 3% + 6万) × 1.1
+            let brokerageFee = 0;
+            if (landPrice > 0) {
+                brokerageFee = (landPrice * 0.03 + 60000) * 1.1;
+            }
+            document.getElementById('val-m20').value = Math.round(brokerageFee);
+
+            // 総額のプレ集計（融資手数料計算のための一時計算）
+            let tempTotal = 0;
+            for(let i=1; i<=29; i++) {
+                if(i === 11) continue; // 融資手数料はスキップ
+                const pad = String(i).padStart(2, '0');
+                const cb = document.getElementById(`cb-m${pad}`);
+                if (cb && cb.checked) {
+                    tempTotal += parseFloat(document.getElementById(`val-m${pad}`).value) || 0;
+                }
+            }
+            let approxLoan = Math.max(0, tempTotal - downPayment);
+            // 11. 融資手数料 = 概算借入額 × 2.2%
+            const loanFee = approxLoan * 0.022;
+            document.getElementById('val-m11').value = Math.round(loanFee);
+
+            // 29項目の完全集計
+            let totalCost = 0;
+            let stepTotals = { s1: 0, s2: 0, s3: 0, s4: 0, s5: 0, other: 0 };
+
+            for(let i=1; i<=29; i++) {
+                const pad = String(i).padStart(2, '0');
+                const cb = document.getElementById(`cb-m${pad}`);
+                const val = parseFloat(document.getElementById(`val-m${pad}`).value) || 0;
+                
+                if (cb && cb.checked) {
+                    totalCost += val;
+                    if (i <= 6) stepTotals.s1 += val;
+                    else if (i <= 9) stepTotals.s2 += val;
+                    else if (i <= 15) stepTotals.s3 += val;
+                    else if (i <= 17) stepTotals.s4 += val;
+                    else if (i <= 27) stepTotals.s5 += val;
+                    else stepTotals.other += val;
+                }
+            }
+
+            // 小計画面への反映
+            document.getElementById('total-step1').innerText = "STEP01 小計: " + formatYen(stepTotals.s1);
+            document.getElementById('total-step2').innerText = "STEP02 小計: " + formatYen(stepTotals.s2);
+            document.getElementById('total-step3').innerText = "STEP03 小計: " + formatYen(stepTotals.s3);
+            document.getElementById('total-step4').innerText = "STEP04 小計: " + formatYen(stepTotals.s4);
+            document.getElementById('total-step5').innerText = "STEP05 小計: " + formatYen(stepTotals.s5);
+            document.getElementById('total-other').innerText = "その他 小計: " + formatYen(stepTotals.other);
+
+            // 借入金の確定
+            const finalLoanAmount = Math.max(0, totalCost - downPayment);
+
+            // ローンシミュレーション
+            const monthlyA = calculatePMT(finalLoanAmount, 0.47, 35);
+            const monthlyB = calculatePMT(finalLoanAmount, 1.85, 35);
+            const monthlyC = calculatePMT(finalLoanAmount, 0.47, 25);
+
+            // 返済比率算出 (プランAベース)
+            let repaymentRatio = 0;
+            if (annualIncome > 0) {
+                repaymentRatio = ((monthlyA * 12) / annualIncome) * 100;
+            }
+
+            // 上部固定バナーへの反映
+            document.getElementById('banner-total-cost').innerText = formatYen(totalCost);
+            document.getElementById('banner-loan-amount').innerText = formatYen(finalLoanAmount);
+            document.getElementById('banner-monthly-payment').innerText = new Intl.NumberFormat('ja-JP').format(Math.round(monthlyA)) + " 円/月";
+            
+            const ratioSpan = document.getElementById('banner-repayment-ratio');
+            ratioSpan.innerText = repaymentRatio.toFixed(1) + " %";
+            if (repaymentRatio > 25) {
+                ratioSpan.className = "alert";
+            } else {
+                ratioSpan.className = "highlight";
+            }
+
+            // STEP 3 比較カードへの反映
+            document.querySelectorAll('.calc-loan-amt').forEach(el => el.innerText = formatYen(finalLoanAmount));
+            document.getElementById('loanA-monthly').innerText = formatYen(monthlyA) + " /月";
+            document.getElementById('loanB-monthly').innerText = formatYen(monthlyB) + " /月";
+            document.getElementById('loanC-monthly').innerText = formatYen(monthlyC) + " /月";
+
+            // 明細表の動的再生成
+            generateSummaryTable();
+        }
+
+        // 明細一覧表生成
+        function generateSummaryTable() {
+            const tbody = document.getElementById('summary-table-body');
+            tbody.innerHTML = "";
+
+            const stepNames = {
+                1: "STEP 01 建築工事", 7: "STEP 02 税金登記", 10: "STEP 03 ローン経費",
+                16: "STEP 04 申請費用", 18: "STEP 05 土地・敷地", 28: "その他諸経費"
+            };
+
+            for(let i=1; i<=29; i++) {
+                const pad = String(i).padStart(2, '0');
+                const cb = document.getElementById(`cb-m${pad}`);
+                const val = parseFloat(document.getElementById(`val-m${pad}`).value) || 0;
+                const label = document.querySelector(`label[for="cb-m${pad}"]`).innerText;
+
+                let categoryStr = stepNames[i] || "";
+                let statusStr = cb.checked ? "👉 計上中" : "❌ 除外";
+                if (i === 1 || i === 20 || i === 11) statusStr += " (自動計算)";
+
+                const row = document.createElement('tr');
+                if(!cb.checked) row.style.color = "#a0aec0";
+
+                row.innerHTML = `
+                    <td><strong>${categoryStr}</strong></td>
+                    <td>${label}</td>
+                    <td class="num">${formatYen(val)}</td>
+                    <td><span style="color: ${cb.checked ? '#16a085' : '#e53e3e'}">${statusStr}</span></td>
+                `;
+                tbody.appendChild(row);
+            }
+        }
+
+        // 初期実行
+        window.onload = function() {
+            calculateAll();
+        };
+    </script>
+</body>
+</html>
