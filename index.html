@@ -21,87 +21,45 @@
             padding: 30px;
         }
         .container {
-            max-width: 1000px;
+            max-width: 800px; /* リストのみなので少しスリムに調整 */
             margin: 0 auto;
         }
         h1 {
             border-bottom: 2px solid var(--primary-color);
             padding-bottom: 10px;
             font-size: 1.8rem;
+            margin-bottom: 30px;
         }
-        h2 {
-            font-size: 1.3rem;
-            margin-top: 30px;
-            color: #555;
-        }
-        /* コントロール・プルダウン群 */
+        /* リストを囲むボックス */
         .section-box {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 20px;
-            margin-bottom: 20px;
-        }
-        select {
-            width: 100%;
-            max-width: 400px;
-            padding: 10px;
-            font-size: 1rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         /* リスト表示のスタイル */
         .app-list {
             list-style: none;
             padding: 0;
+            margin: 0;
         }
         .app-list li {
-            margin-bottom: 10px;
+            padding: 12px 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .app-list li:last-child {
+            border-bottom: none; /* 最後の線の除去 */
         }
         .app-list a {
             color: var(--primary-color);
             text-decoration: none;
             font-weight: bold;
+            font-size: 1.1rem;
+            display: inline-block;
         }
         .app-list a:hover {
             text-decoration: underline;
-        }
-        /* ギャラリー表示のスタイル */
-        .gallery {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-            gap: 20px;
-            margin-top: 15px;
-        }
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .card:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .card h3 {
-            margin: 0 0 15px 0;
-            font-size: 1.1rem;
-            word-break: break-all;
-        }
-        .btn {
-            display: inline-block;
-            background-color: var(--primary-color);
-            color: #fff;
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            text-align: center;
-        }
-        .btn:hover {
-            background-color: #0056b3;
         }
         .loading {
             color: #888;
@@ -113,30 +71,19 @@
 
 <div class="container">
     <h1>簡易検証用アプリケーションポータル</h1>
+    
     <p id="loading-status" class="loading">GitHubからアプリ一覧を取得中...</p>
 
     <div class="section-box">
-        <label for="app-select"><strong>【プルダウン表示】高速切り替え:</strong></label><br><br>
-        <select id="app-select" onchange="if(this.value) window.open(this.value, '_blank')">
-            <option value="">-- アプリを選択して展開 --</option>
-        </select>
-    </div>
-
-    <h2>【リスト表示】一覧から選択</h2>
-    <div class="section-box">
         <ul id="app-list" class="app-list"></ul>
     </div>
-
-    <h2>【ギャラリー表示】カードタイル</h2>
-    <div id="app-gallery" class="gallery"></div>
 </div>
 
 <script>
-    // ⚠️環境に合わせてここを必ず書き換えてください
-    const GITHUB_USER = 'nanana0816'; // 例: 'taro-yamada'
-    const GITHUB_REPO = 'preview'; // 例: 'my-sandbox-apps'
+    const GITHUB_USER = 'nanana0816'; 
+    const GITHUB_REPO = 'preview'; 
 
-    // GitHub API エンドポイント（ルート直下のファイル一覧を取得）
+    // GitHub API エンドポイント
     const apiUrl = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/contents/`;
 
     async function loadWorkspaceApps() {
@@ -146,12 +93,10 @@
             
             const contents = await response.json();
             
-            const selectEl = document.getElementById('app-select');
             const listEl = document.getElementById('app-list');
-            const galleryEl = document.getElementById('app-gallery');
             const statusEl = document.getElementById('loading-status');
 
-            // フォルダ（typeが'dir'のもの）だけを抽出してループ
+            // フォルダ（typeが'dir'のもの）だけを抽出
             const folders = contents.filter(item => item.type === 'dir');
 
             if (folders.length === 0) {
@@ -159,29 +104,14 @@
                 return;
             }
 
+            // ループ処理でリストのみを生成
             folders.forEach(folder => {
-                // GitHub PagesのURL構造を生成
                 const appUrl = `https://${GITHUB_USER}.github.io/${GITHUB_REPO}/${folder.name}/`;
 
-                // ① プルダウン（セレクトボックス）への追加
-                const option = document.createElement('option');
-                option.value = appUrl;
-                option.textContent = folder.name;
-                selectEl.appendChild(option);
-
-                // ② リスト表示への追加
+                // リストアイテムの追加
                 const li = document.createElement('li');
-                li.innerHTML = `・ <a href="${appUrl}" target="_blank">${folder.name}</a>`;
+                li.innerHTML = `📄 <a href="${appUrl}" target="_blank">${folder.name}</a>`;
                 listEl.appendChild(li);
-
-                // ③ ギャラリー（カード）表示への追加
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.innerHTML = `
-                    <h3>${folder.name}</h3>
-                    <a href="${appUrl}" target="_blank" class="btn">検証を開始</a>
-                `;
-                galleryEl.appendChild(card);
             });
 
             // ステータス表示を消去
