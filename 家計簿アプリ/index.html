@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>レシート家計簿 - 金額特化OCR＆集計変更版</title>
+    <title>レシート家計簿 - キーワード自動判別OCR版</title>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 20px; background-color: #f0f2f5; color: #333; }
@@ -26,8 +26,8 @@
 
         /* OCR撮影エリア */
         .upload-section { border: 2px dashed #4dabf7; padding: 20px; text-align: center; background: #f1f3f5; cursor: pointer; border-radius: 8px; margin-bottom: 20px; }
-        #preview { max-width: 100%; max-height: 120px; display: none; margin: 10px auto 0; border-radius: 4px; }
-        .loading { display: none; color: #4dabf7; font-weight: bold; text-align: center; margin: 10px 0; }
+        #preview { max-width: 100%; max-height: 200px; display: none; margin: 10px auto 0; border-radius: 4px; }
+        .loading { display: none; color: #4dabf7; font-weight: bold; text-align: center; margin: 10px 0; white-space: pre-line; }
 
         /* テーブル */
         .table-container { overflow-x: auto; }
@@ -45,7 +45,7 @@
 <body>
 
 <div class="container">
-    <h1>レシート家計簿 (金額OCR特化版)</h1>
+    <h1>レシート家計簿 (自動判別OCR版)</h1>
 
     <div class="filter-section">
         <label for="month-filter">📅 対象月を選択:</label>
@@ -58,12 +58,12 @@
     </div>
 
     <div class="upload-section" onclick="document.getElementById('receipt-input').click()">
-        <p id="upload-text">🔍 <b>【金額部分を拡大して】</b>撮影または画像を選択</p>
+        <p id="upload-text">📸 タップしてレシート全体を撮影</p>
         <input type="file" id="receipt-input" accept="image/*" capture="environment" style="display: none;">
-        <img id="preview" alt="金額プレビュー">
+        <img id="preview" alt="レシートプレビュー">
     </div>
 
-    <div id="loading-text" class="loading">画像を解析中（文字認識処理）...</div>
+    <div id="loading-text" class="loading">画像を解析中...<br>(初回のみ日本語データのダウンロードに10秒ほどかかります)</div>
 
     <h2>明細一覧</h2>
     <div class="table-container">
@@ -92,7 +92,6 @@
     const CATEGORIES = ["食費", "ガソリン代", "日用品", "嗜好品", "その他"];
     const PAYMENTS = ["現金", "クレジットカード", "楽天ペイ", "その他"];
 
-    // 1. ローカルストレージから復元（無ければ空）
     let state = JSON.parse(localStorage.getItem('receipt_kakeibo_ocr_data')) || { items: [] };
     let currentSelectedMonth = new Date().toISOString().substring(0, 7); 
 
@@ -107,7 +106,6 @@
         localStorage.setItem('receipt_kakeibo_ocr_data', JSON.stringify(state));
     }
 
-    // 月選択フィルターの更新
     function updateMonthFilterOptions() {
         const months = state.items.map(item => item.date.substring(0, 7));
         months.push(new Date().toISOString().substring(0, 7));
@@ -125,7 +123,7 @@
 
     monthFilter.addEventListener('change', (e) => { currentSelectedMonth = e.target.value; render(); });
 
-    // 2. 実際のOCR読み取り処理
+    // 🌟 OCR読み取りと自動キーワード判定ロジック
     receiptInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -139,24 +137,49 @@
 
         loadingText.style.display = 'block';
 
-        // Tesseract.jsによる本物の文字認識(数字のみに限定して精度向上)
-        Tesseract.recognize(file, 'eng', {
-            tessedit_char_whitelist: '0123456789,.' // 数字とカンマ・ドットだけを狙い撃ち
-        }).then(({ data: { text } }) => {
+        // 日本語（jpn）と英語（eng）の混合モードで解析
+        Tesseract.recognize(file, 'jpn+eng').then(({ data: { text } }) => {
             loadingText.style.display = 'none';
             
-            // 読み取った文字列から数字だけを取り出す加工
-            let cleanedText = text.replace(/[^0-9]/g, ''); 
-            let parsedAmount = parseInt(cleanedText, 10) || 0;
+            console.log("--- OCR 読み取り生テキスト ---");
+            console.log(text);
+            
+            // 1. 金額の抽出ロジック
+            // 「合計」「お買上」「売上」「支払」などの文字の後に続く数字・記号の並びを探す
+            const amountRegex = /(?:合計|お買|買上|売上|支払|合計金額|小計)[\s:：¥￥]*([0-9,.\s]+)/i;
+            const matchAmount = text.replace(/\s+/g, '').match(/(?:合計|お買上計|買上計|売上|支払|小計)[^0-9]*([0-9,]+)/);
+            
+            let finalAmount = 0;
+            if (matchAmount && matchAmount[1]) {
+                let cleanedAmt = matchAmount[1].replace(/[^0-9]/g, '');
+                finalAmount = parseInt(cleanedAmt, 10) || 0;
+            }
+
+            // 2. 支払い方法の抽出ロジック
+            let finalPayment = "現金"; // デフォルト
+            const lowerText = text.toLowerCase();
+            if (lowerText.includes("クレジット") || lowerText.includes("カード") || lowerText.includes("master") || lowerText.includes("visa")) {
+                finalPayment = "クレジットカード";
+            } else if (lowerText.includes("楽天ペイ") || lowerText.includes("ペイ") || lowerText.includes("pay")) {
+                finalPayment = "楽天ペイ";
+            }
+
+            // 3. 店名などからカテゴリをゆるく推測
+            let finalCategory = "その他";
+            if (lowerText.includes("ベルク") || lowerText.includes("belc") || lowerText.includes("スーパー")) {
+                finalCategory = "食費";
+            } else if (lowerText.includes("キグナス") || lowerText.includes("ガソリン") || lowerText.includes("kygnus")) {
+                finalCategory = "ガソリン代";
+            }
 
             // 新しい明細を追加
             const today = new Date().toISOString().split('T')[0];
             const newItem = {
                 id: Date.now(),
                 date: today,
-                category: "その他",
-                payment: "現金",
-                amount: parsedAmount
+                category: finalCategory,
+                payment: finalPayment,
+                amount: finalAmount
             };
             state.items.push(newItem);
             currentSelectedMonth = today.substring(0, 7);
@@ -164,23 +187,22 @@
             render();
         }).catch(err => {
             console.error(err);
-            loadingText.textContent = "読み取り失敗。手動で入力してください。";
+            loadingText.textContent = "読み取り失敗。手動で入力・修正してください。";
         });
     });
 
-    // 3. レンダリングと集計ロジック（現金 vs カード引き落とし対象）
+    // レンダリングと集計ロジック
     function render() {
         updateMonthFilterOptions();
         historyRows.innerHTML = '';
 
-        let cashTotal = 0;      // 現金
-        let cashlessTotal = 0;  // それ以外（クレカ・Pay払いなど＝最終的なカード引き落とし対象）
+        let cashTotal = 0;      
+        let cashlessTotal = 0;  
 
         const filteredItems = state.items.filter(item => item.date.startsWith(currentSelectedMonth));
         filteredItems.sort((a, b) => b.date.localeCompare(a.date));
 
         filteredItems.forEach((item) => {
-            // 新しい集計ルールに基づいて分類
             if (item.payment === "現金") {
                 cashTotal += item.amount;
             } else {
@@ -206,7 +228,6 @@
             historyRows.appendChild(tr);
         });
 
-        // ダッシュボード表示の更新
         const grandTotal = cashTotal + cashlessTotal;
         const cashPercent = grandTotal > 0 ? Math.round((cashTotal / grandTotal) * 100) : 0;
         const cashlessPercent = grandTotal > 0 ? Math.round((cashlessTotal / grandTotal) * 100) : 0;
@@ -219,14 +240,12 @@
             </div>
             <div class="chart-row">
                 <div class="chart-label">💳 カード・Pay引き落とし</div>
-                <div class="chart-bar-bg"><div class="chart-bar cashless" style="width: ${customMax(cashlessPercent)}%;"></div></div>
+                <div class="chart-bar-bg"><div class="chart-bar cashless" style="width: ${cashlessPercent}%;"></div></div>
                 <div class="chart-value"><b>${cashlessTotal.toLocaleString()}円</b> (${cashlessPercent}%)</div>
             </div>
             <div style="text-align:right; font-weight:bold; margin-top:10px; font-size:1.1em;">月間総合計: ${grandTotal.toLocaleString()} 円</div>
         `;
     }
-
-    function customMax(val) { return val > 100 ? 100 : val; }
 
     // データ変更関数
     function updateAmount(id, val) { const item = state.items.find(i => i.id === id); if(item){ item.amount = Number(val)||0; saveState(); render(); }}
@@ -235,7 +254,6 @@
     function updateDate(id, val) { const item = state.items.find(i => i.id === id); if(item){ item.date = val; currentSelectedMonth = val.substring(0,7); saveState(); render(); }}
     function deleteItem(id) { state.items = state.items.filter(i => i.id !== id); saveState(); render(); }
 
-    // 4. データのエクスポート(JSONファイルとして手動ダウンロード)
     function exportJSON() {
         const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state, null, 2));
         const downloadAnchor = document.createElement('a');
@@ -246,7 +264,6 @@
         downloadAnchor.remove();
     }
 
-    // 5. データのインポート(JSONファイルを読み込んで上書き復元)
     function importJSON(input) {
         const file = input.files[0];
         if (!file) return;
@@ -254,15 +271,8 @@
         reader.onload = function(e) {
             try {
                 const imported = JSON.parse(e.target.result);
-                if (imported && imported.items) {
-                    state = imported;
-                    saveState();
-                    render();
-                    alert("データを復元しました！");
-                }
-            } catch (err) {
-                alert("ファイルの読み込みに失敗しました。正しいJSONファイルかご確認ください。");
-            }
+                if (imported && imported.items) { state = imported; saveState(); render(); alert("データを復元しました！"); }
+            } catch (err) { alert("ファイルの読み込みに失敗しました。"); }
         };
         reader.readAsText(file);
     }
