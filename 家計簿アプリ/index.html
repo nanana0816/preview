@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡易レシート家計簿（叩き台）</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            text-align: center;
+            color: #333;
+        }
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            background: #fafafa;
+            cursor: pointer;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        #preview {
+            max-width: 100%;
+            max-height: 200px;
+            display: none;
+            margin: 10px auto;
+        }
+        .loading {
+            display: none;
+            color: #666;
+            font-style: italic;
+            margin: 10px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .total-section {
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: right;
+            border-top: 2px solid #333;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>簡易レシート家計簿</h1>
+    
+    <div class="upload-section" onclick="document.getElementById('receipt-input').click()">
+        <p>ここをタップしてレシートを撮影 / 選択</p>
+        <input type="file" id="receipt-input" accept="image/*" capture="environment" style="display: none;">
+        <img id="preview" alt="レシートプレビュー">
+    </div>
+
+    <div id="loading-text" class="loading">レシートを解析中（擬似処理）...</div>
+
+    <h2>今月の履歴</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>日付</th>
+                <th>品目（仮）</th>
+                <th>金額</th>
+            </tr>
+        </thead>
+        <tbody id="history-rows">
+            </tbody>
+    </table>
+
+    <div class="total-section">
+        合計金額: <span id="total-amount">0</span> 円
+    </div>
+</div>
+
+<script>
+    // 状態管理用のデータ構造（初期状態は空）
+    const state = {
+        items: [],
+        total: 0
+    };
+
+    const receiptInput = document.getElementById('receipt-input');
+    const preview = document.getElementById('preview');
+    const loadingText = document.getElementById('loading-text');
+    const historyRows = document.getElementById('history-rows');
+    const totalAmount = document.getElementById('total-amount');
+
+    // ファイルが選択された時の処理
+    receiptInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // 1. 画像プレビューの表示
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            preview.src = event.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+
+        // 2. 擬似的な解析処理（1.5秒の遅延後にランダムデータを生成）
+        loadingText.style.display = 'block';
+        
+        setTimeout(() => {
+            loadingText.style.display = 'none';
+            
+            // 本来はここでOCR（文字認識）を行いデータを抽出しますが、
+            // 叩き台としてランダムなダミーデータを生成します。
+            const dummyAmount = Math.floor(Math.random() * 4000) + 500; // 500円〜4500円
+            const today = new Date().toISOString().split('T')[0];
+            
+            const newItem = {
+                date: today,
+                name: 'レシート一括（自動読取）',
+                amount: dummyAmount
+            };
+
+            // データの更新と再描画
+            addItem(newItem);
+        }, 1500);
+    });
+
+    // データを追加して画面を更新する関数
+    function addItem(item) {
+        state.items.push(item);
+        state.total += item.amount;
+
+        // テーブル行の追加
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${item.date}</td>
+            <td>${item.name}</td>
+            <td>${item.amount.toLocaleString()} 円</td>
+        `;
+        historyRows.appendChild(row);
+
+        // 合計金額の更新
+        totalAmount.textContent = state.total.toLocaleString();
+    }
+</script>
+
+</body>
+</html>
