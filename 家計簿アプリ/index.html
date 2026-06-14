@@ -3,105 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>簡易レシート家計簿（叩き台）</title>
+    <title>レシート家計簿 - 機能拡張版プロトタイプ</title>
     <style>
         body {
             font-family: sans-serif;
             margin: 20px;
-            background-color: #f5f5f5;
+            background-color: #f0f2f5;
+            color: #333;
         }
         .container {
-            max-width: 500px;
+            max-width: 600px;
             margin: 0 auto;
             background: white;
             padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
         h1, h2 {
             text-align: center;
-            color: #333;
+            color: #1a1a1a;
         }
+        /* ダッシュボードエリア */
+        .dashboard {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+        .dashboard-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            font-size: 0.95em;
+            color: #495057;
+        }
+        .chart-container {
+            display: flex;
+            gap: 10px;
+            flex-direction: column;
+        }
+        .chart-row {
+            display: flex;
+            align-items: center;
+            font-size: 0.85em;
+        }
+        .chart-label { width: 70px; }
+        .chart-bar-bg {
+            flex-grow: 1;
+            background: #e9ecef;
+            height: 12px;
+            border-radius: 6px;
+            margin: 0 10px;
+            overflow: hidden;
+        }
+        .chart-bar {
+            height: 100%;
+            background: #4dabf7;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .chart-value { width: 90px; text-align: right; }
+
+        /* アップロードエリア */
         .upload-section {
-            border: 2px dashed #ccc;
+            border: 2px dashed #ced4da;
             padding: 20px;
             text-align: center;
-            background: #fafafa;
+            background: #f8f9fa;
             cursor: pointer;
-            border-radius: 4px;
+            border-radius: 8px;
             margin-bottom: 20px;
+            transition: background 0.2s;
         }
+        .upload-section:hover { background: #e9ecef; }
         #preview {
             max-width: 100%;
-            max-height: 200px;
+            max-height: 150px;
             display: none;
-            margin: 10px auto;
+            margin: 10px auto 0;
+            border-radius: 4px;
         }
         .loading {
             display: none;
-            color: #666;
-            font-style: italic;
+            color: #4dabf7;
+            font-weight: bold;
+            text-align: center;
             margin: 10px 0;
+        }
+
+        /* 明細・テーブルエリア */
+        .table-container {
+            overflow-x: auto;
         }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 20px;
+            margin-top: 10px;
+            font-size: 0.9em;
         }
         th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
+            border-bottom: 1px solid #dee2e6;
+            padding: 10px 6px;
             text-align: left;
         }
-        th {
-            background-color: #f2f2f2;
+        th { background-color: #f1f3f5; color: #495057; }
+        
+        /* 入力コントロール */
+        .input-edit {
+            width: 100%;
+            padding: 4px;
+            box-sizing: border-box;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
         }
+        .select-edit {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+        .btn-delete {
+            background-color: #ffc9c9;
+            color: #fa5252;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+        }
+        .btn-delete:hover { background-color: #ffe3e3; }
+
         .total-section {
             margin-top: 20px;
-            font-size: 1.2em;
+            font-size: 1.3em;
             font-weight: bold;
             text-align: right;
-            border-top: 2px solid #333;
+            color: #212529;
             padding-top: 10px;
+            border-top: 2px solid #212529;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>簡易レシート家計簿</h1>
+    <h1>レシート家計簿 (MVP2)</h1>
     
+    <div class="dashboard">
+        <div class="dashboard-title">📊 カテゴリ別支出割合</div>
+        <div class="chart-container" id="dashboard-charts">
+            </div>
+    </div>
+
     <div class="upload-section" onclick="document.getElementById('receipt-input').click()">
-        <p>ここをタップしてレシートを撮影 / 選択</p>
+        <p id="upload-text">📸 タップしてレシートを撮影 / 撮り直し</p>
         <input type="file" id="receipt-input" accept="image/*" capture="environment" style="display: none;">
         <img id="preview" alt="レシートプレビュー">
     </div>
 
-    <div id="loading-text" class="loading">レシートを解析中（擬似処理）...</div>
+    <div id="loading-text" class="loading">レシート読み取り中...</div>
 
-    <h2>今月の履歴</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>日付</th>
-                <th>品目（仮）</th>
-                <th>金額</th>
-            </tr>
-        </thead>
-        <tbody id="history-rows">
-            </tbody>
-    </table>
+    <h2>明細一覧（編集・削除可能）</h2>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 20%;">日付</th>
+                    <th style="width: 25%;">分類</th>
+                    <th style="width: 35%;">金額 (円)</th>
+                    <th style="width: 20%;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="history-rows">
+                </tbody>
+        </table>
+    </div>
 
     <div class="total-section">
-        合計金額: <span id="total-amount">0</span> 円
+        総合計: <span id="total-amount">0</span> 円
     </div>
 </div>
 
 <script>
-    // 状態管理用のデータ構造（初期状態は空）
-    const state = {
-        items: [],
-        total: 0
+    // 利用するカテゴリの定義
+    const CATEGORIES = ["食費", "日用品", "嗜好品", "その他"];
+
+    // アプリの状態管理（初期データとして今回のレシートに近いダミーを設定可能、初期は空）
+    let state = {
+        items: []
     };
 
     const receiptInput = document.getElementById('receipt-input');
@@ -109,59 +198,140 @@
     const loadingText = document.getElementById('loading-text');
     const historyRows = document.getElementById('history-rows');
     const totalAmount = document.getElementById('total-amount');
+    const uploadText = document.getElementById('upload-text');
+    const dashboardCharts = document.getElementById('dashboard-charts');
 
-    // ファイルが選択された時の処理
+    // ファイル選択（撮影・撮り直し）時のイベント
     receiptInput.addEventListener('change', function(e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        // 1. 画像プレビューの表示
+        // プレビュー画像の差し替え（撮り直しに対応）
         const reader = new FileReader();
         reader.onload = function(event) {
             preview.src = event.target.result;
             preview.style.display = 'block';
+            uploadText.textContent = "🔄 別の写真を撮り直す";
         };
         reader.readAsDataURL(file);
 
-        // 2. 擬似的な解析処理（1.5秒の遅延後にランダムデータを生成）
+        // 読み取りアニメーション
         loadingText.style.display = 'block';
         
         setTimeout(() => {
             loadingText.style.display = 'none';
             
-            // 本来はここでOCR（文字認識）を行いデータを抽出しますが、
-            // 叩き台としてランダムなダミーデータを生成します。
-            const dummyAmount = Math.floor(Math.random() * 4000) + 500; // 500円〜4500円
+            // 💡 叩き台用の擬似処理：
+            // 送っていただいた「ベルク」の実際のレシート合計額「9389円」に近い数値を自動生成させてみます
+            const isFirst = state.items.length === 0;
+            const dummyAmount = isFirst ? 9389 : Math.floor(Math.random() * 3000) + 500;
+            const dummyCategory = isFirst ? "食費" : CATEGORIES[Math.floor(Math.random() * CATEGORIES.length)];
+            
             const today = new Date().toISOString().split('T')[0];
             
             const newItem = {
+                id: Date.now(), // 一意のID
                 date: today,
-                name: 'レシート一括（自動読取）',
+                category: dummyCategory,
                 amount: dummyAmount
             };
 
-            // データの更新と再描画
-            addItem(newItem);
-        }, 1500);
+            state.items.push(newItem);
+            render();
+        }, 1200);
     });
 
-    // データを追加して画面を更新する関数
-    function addItem(item) {
-        state.items.push(item);
-        state.total += item.amount;
+    // 画面の全体再描画ロジック（データ変更時に呼び出す）
+    function render() {
+        // 1. 明細テーブルの更新
+        historyRows.innerHTML = '';
+        let total = 0;
 
-        // テーブル行の追加
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${item.date}</td>
-            <td>${item.name}</td>
-            <td>${item.amount.toLocaleString()} 円</td>
-        `;
-        historyRows.appendChild(row);
+        // カテゴリ集計用のオブジェクトを初期化
+        const categoryTotals = {};
+        CATEGORIES.forEach(cat => categoryTotals[cat] = 0);
 
-        // 合計金額の更新
-        totalAmount.textContent = state.total.toLocaleString();
+        state.items.forEach((item) => {
+            total += item.amount;
+            categoryTotals[item.category] += item.amount;
+
+            const tr = document.createElement('tr');
+            
+            // カテゴリのセレクトボックス生成
+            let selectHtml = `<select class="select-edit" onchange="updateCategory(${item.id}, this.value)">`;
+            CATEGORIES.forEach(cat => {
+                const selected = cat === item.category ? 'selected' : '';
+                selectHtml += `<option value="${cat}" ${selected}>${cat}</option>`;
+            });
+            selectHtml += `</select>`;
+
+            tr.innerHTML = `
+                <td><input type="date" class="input-edit" value="${item.date}" onchange="updateDate(${item.id}, this.value)"></td>
+                <td>${selectHtml}</td>
+                <td><input type="number" class="input-edit" value="${item.amount}" onchange="updateAmount(${item.id}, this.value)"></td>
+                <td><button class="btn-delete" onclick="deleteItem(${item.id})">削除</button></td>
+            `;
+            historyRows.appendChild(tr);
+        });
+
+        // 総合計の表示更新
+        totalAmount.textContent = total.toLocaleString();
+
+        // 2. ダッシュボード（グラフ）の更新
+        dashboardCharts.innerHTML = '';
+        CATEGORIES.forEach(cat => {
+            const catAmount = categoryTotals[cat];
+            const percent = total > 0 ? Math.round((catAmount / total) * 100) : 0;
+
+            const chartRow = document.createElement('div');
+            chartRow.className = 'chart-row';
+            chartRow.innerHTML = `
+                <div class="chart-label">${cat}</div>
+                <div class="chart-bar-bg">
+                    <div class="chart-bar" style="width: ${percent}%;"></div>
+                </div>
+                <div class="chart-value">${catAmount.toLocaleString()}円 (${percent}%)</div>
+            `;
+            dashboardCharts.appendChild(chartRow);
+        });
     }
+
+    // --- データ操作用の関数群 ---
+
+    // 金額の修正
+    function updateAmount(id, value) {
+        const item = state.items.find(i => i.id === id);
+        if (item) {
+            item.amount = Number(value) || 0;
+            render(); // 再集計
+        }
+    }
+
+    // カテゴリの修正
+    function updateCategory(id, value) {
+        const item = state.items.find(i => i.id === id);
+        if (item) {
+            item.category = value;
+            render(); // 再集計
+        }
+    }
+
+    // 日付の修正
+    function updateDate(id, value) {
+        const item = state.items.find(i => i.id === id);
+        if (item) {
+            item.date = value;
+        }
+    }
+
+    // 明細の削除
+    function deleteItem(id) {
+        state.items = state.items.filter(i => i.id !== id);
+        render(); // 再集計
+    }
+
+    // 初回実行
+    render();
 </script>
 
 </body>
