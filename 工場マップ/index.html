@@ -1,609 +1,1137 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工場マップ詳細可視化＆エディタシステム</title>
-    <style>
-        :root {
-            --bg-color: #0f172a;
-            --road-color: #334155;
-            --green-color: #14532d;
-            --building-bg: rgba(30, 41, 59, 0.75);
-            --building-border: #38bdf8;
-            --line-bg: rgba(56, 189, 248, 0.2);
-            --line-border: #0ea5e9;
-            --text-color: #f8fafc;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工場マップ ベクターエディタ（フェーズ2）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#eef0f2; --panel:#ffffff; --panel-2:#f5f7f8; --line:#dde1e6; --ink:#1f2937; --muted:#6b7684;
+    --ground:#8bab45; --ground-line:#5f7d2b;
+    --road:#9aa0a6; --road-line:#ffffff;
+    --bld-fill:#c9d6de; --bld-stroke:#33424f;
+    --accent:#2f6fed; --accent-2:#ff8a3d;
+    --run:#2fbf71; --stop:#e5484d; --warn:#f5a623;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:"Inter",system-ui,sans-serif;}
+  .mono{font-family:"JetBrains Mono",monospace;}
 
-        body {
-            margin: 0; padding: 0;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            overflow: hidden;
-            width: 100vw; height: 100vh;
-            display: flex;
-        }
+  header{
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+    padding:14px 20px;background:var(--panel);border-bottom:1px solid var(--line);
+  }
+  header h1{font-size:16px;margin:0;font-weight:700;}
+  header p{margin:1px 0 0;font-size:11.5px;color:var(--muted);}
 
-        /* 左側：高機能コントロールパネル */
-        #control-panel {
-            width: 320px;
-            background: rgba(15, 23, 42, 0.95);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 20px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-            z-index: 10;
-            overflow-y: auto;
-        }
+  .toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;
+    border:1px solid var(--line);background:var(--panel-2);color:var(--ink);
+    padding:8px 13px;border-radius:8px;font-size:12.5px;font-weight:500;cursor:pointer;
+    transition:background .15s,border-color .15s;
+  }
+  .btn:hover{background:#eceff1;}
+  .btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.primary:hover{background:#255bc4;}
+  .btn.danger{color:var(--stop);}
+  .btn.danger:hover{background:#fdeceb;}
+  .sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px;}
 
-        /* 右側：マップ表示エリア */
-        #map-container {
-            flex: 1;
-            position: relative;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+  .stage{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:0;height:calc(100vh - 61px);}
+  .canvas-wrap{position:relative;padding:18px;overflow:auto;}
+  .hint-bar{
+    display:flex;justify-content:space-between;align-items:center;
+    font-size:12px;color:var(--muted);margin-bottom:8px;
+  }
+  .hint-bar b{color:var(--ink);}
+  .canvas-frame{
+    border:1px solid var(--line);border-radius:var(--radius);background:#fff;
+    box-shadow:0 10px 30px rgba(20,30,40,.08);overflow:hidden;
+  }
+  svg#map{display:block;width:100%;height:auto;cursor:default;}
+  svg#map.drawing{cursor:crosshair;}
 
-        svg {
-            width: 100%; height: 100%;
-            max-width: 100vw; max-height: 100vh;
-            background-color: var(--bg-color);
-            user-select: none;
-        }
+  .obj-shape{stroke-width:2;cursor:pointer;transition:filter .12s;}
+  .obj-shape:hover{filter:brightness(1.06);}
+  .obj-shape.selected{stroke:var(--accent-2)!important;stroke-width:3;}
+  .obj-label{font-size:11px;font-weight:600;fill:#1f2937;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:3px;}
+  .status-badge{stroke:#fff;stroke-width:1.2;}
+  .status-badge.run{fill:var(--run);} .status-badge.stop{fill:var(--stop);} .status-badge.warn{fill:var(--warn);}
 
-        /* 各種グラフィック要素のスタイル */
-        .road { fill: var(--road-color); }
-        .green-zone { fill: var(--green-color); }
-        
-        /* リアル化した工場外枠（斜め対応） */
-        .building {
-            fill: var(--building-bg);
-            stroke: var(--building-border);
-            stroke-width: 2;
-            cursor: pointer;
-            transition: fill 0.3s;
-        }
-        .building:hover {
-            fill: rgba(56, 189, 248, 0.15);
-        }
+  .handle{fill:#fff;stroke:var(--accent);stroke-width:2;cursor:grab;}
+  .handle:active{cursor:grabbing;fill:var(--accent);}
+  .handle.radius{fill:#fff;stroke:var(--accent-2);}
+  .draft-point{fill:var(--accent-2);stroke:#fff;stroke-width:1.5;}
+  .draft-line{stroke:var(--accent-2);stroke-width:2;stroke-dasharray:5 4;fill:none;}
 
-        /* ユーザーが操作・追加できるラインオブジェクト */
-        .factory-line {
-            fill: var(--line-bg);
-            stroke: var(--line-border);
-            stroke-width: 2;
-            cursor: move;
-        }
-        .factory-line:hover {
-            stroke: #f43f5e; /* ホバー時は赤系の枠線に */
-        }
-        .factory-line.selected {
-            stroke: #f43f5e;
-            fill: rgba(244, 63, 94, 0.3);
-            stroke-dasharray: 4;
-        }
+  /* ---- フェーズ2：ノード/エッジ（搬送ルート）＆ アラート ---- */
+  .network-edge{stroke:#2f6fed;stroke-width:4;cursor:pointer;transition:stroke .2s;}
+  .network-edge:hover{stroke:#ff8a3d;stroke-width:6;}
+  .network-edge.disabled{stroke:var(--stop);stroke-dasharray:4 5;opacity:.6;}
+  .network-node{fill:#2f6fed;stroke:#fff;stroke-width:1.5;cursor:pointer;}
+  .network-node:hover{filter:brightness(1.2);}
+  .network-node.picked{fill:var(--accent-2);filter:drop-shadow(0 0 6px var(--accent-2));}
+  
+  /* ルート強調用 */
+  .route-highlight{stroke:var(--accent-2);stroke-width:6;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0.9;}
+  .alert-ring{fill:none;stroke:var(--stop);stroke-width:2;animation:alertPulse 1.4s ease-out infinite;}
+  .alert-dot{fill:var(--stop);stroke:#fff;stroke-width:1.5;}
+  @keyframes alertPulse{0%{r:8;opacity:1;}75%{r:22;opacity:0;}100%{r:22;opacity:0;}}
 
-        /* 稼働ステータスカラー */
-        .status-running { fill: rgba(34, 197, 94, 0.3); stroke: #22c55e; }
-        .status-stopped { fill: rgba(239, 68, 68, 0.3); stroke: #ef4444; }
-        .status-maintenance { fill: rgba(234, 179, 8, 0.3); stroke: #eab308; }
+  .phase2-panel{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:12px;margin-top:10px;}
+  .phase2-panel h4{margin:0 0 8px;font-size:11.5px;font-weight:700;display:flex;align-items:center;gap:6px;}
+  .phase2-panel select{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font-size:12px;margin-bottom:6px;background:#fff;}
+  .route-result{font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:8px;min-height:16px;}
+  .route-result b{color:var(--ink);}
+  
+  /* 検出された経路候補 & 保存済みリスト */
+  .candidate-list, .saved-pattern-list {
+    display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding: 0; list-style: none;
+  }
+  .candidate-item, .saved-pattern-item {
+    background: #ffffff; border: 1px solid var(--line); border-radius: 6px; padding: 8px; font-size: 11.5px;
+  }
+  .candidate-item { cursor: pointer; transition: background .15s; }
+  .candidate-item:hover { background: #eef3fe; }
+  .candidate-title { font-weight: 700; color: var(--accent); display: flex; justify-content: space-between; }
+  .candidate-info { color: var(--muted); font-size: 10.5px; margin-top: 3px; }
+  
+  .pattern-input { width: 100%; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; font-size: 11px; font-weight: 600; margin-bottom: 4px; }
+  .pattern-actions { display: flex; gap: 4px; justify-content: flex-end; margin-top: 4px;}
 
-        text {
-            font-size: 13px;
-            fill: var(--text-color);
-            text-anchor: middle;
-            dominant-baseline: central;
-            pointer-events: none;
-        }
+  .alert-log{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow:auto;margin-top:8px;}
+  .alert-log-item{background:#fff;border:1px solid var(--line);border-radius:7px;padding:7px 9px;font-size:11.5px;}
+  .alert-log-item b{display:block;color:var(--stop);font-size:12px;}
+  .alert-log-item span{color:var(--muted);font-size:10.5px;}
+  .alert-log-empty{font-size:11.5px;color:var(--muted);text-align:center;padding:8px 0;}
 
-        /* UIパーツの共通スタイル */
-        h3, h4 { margin: 0; color: #38bdf8; }
-        button {
-            background: #0284c7; color: white; border: none;
-            padding: 8px 12px; border-radius: 4px; cursor: pointer;
-            font-weight: bold; transition: background 0.2s;
-        }
-        button:hover { background: #0369a1; }
-        button.btn-danger { background: #b91c1c; }
-        button.btn-danger:hover { background: #991b1b; }
-        
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        label { font-size: 12px; color: #94a3b8; }
-        input, select, textarea {
-            width: 100%; background: #1e293b; border: 1px solid #475569;
-            color: white; padding: 6px; border-radius: 4px; box-sizing: border-box;
-        }
+  .coord-tip{
+    position:absolute;pointer-events:none;background:#1f2937;color:#fff;font-size:11px;
+    font-family:"JetBrains Mono",monospace;padding:4px 7px;border-radius:6px;transform:translate(12px,-28px);
+    white-space:nowrap;display:none;z-index:10;
+  }
 
-        /* ライン停止時などの脈動ドットエフェクト */
-        .status-dot {
-            animation: pulse 2s infinite;
-            pointer-events: none;
-        }
-        @keyframes pulse {
-            0% { r: 6; opacity: 1; filter: drop-shadow(0 0 2px #ef4444); }
-            50% { r: 10; opacity: 0.5; filter: drop-shadow(0 0 8px #ef4444); }
-            100% { r: 6; opacity: 1; filter: drop-shadow(0 0 2px #ef4444); }
-        }
-    </style>
+  aside{background:var(--panel);border-left:1px solid var(--line);padding:18px;overflow-y:auto;}
+  aside h2{font-size:13px;margin:0 0 10px;font-weight:700;}
+  .empty-note{color:var(--muted);font-size:12.5px;line-height:1.8;background:var(--panel-2);border:1px dashed var(--line);border-radius:8px;padding:14px;}
+
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;font-weight:600;}
+  .field input[type=text], .field select{
+    width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;font-family:inherit;background:#fff;color:var(--ink);
+  }
+  .coord-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;}
+  .coord-row input[type=number]{
+    width:100%;padding:6px 7px;border:1px solid var(--line);border-radius:6px;font-size:12px;font-family:"JetBrains Mono",monospace;
+  }
+  .coord-row .idx{width:18px;color:var(--muted);font-size:11px;font-family:"JetBrains Mono",monospace;flex:none;}
+  .coord-row .rm{flex:none;width:22px;height:22px;border-radius:6px;border:1px solid var(--line);background:#fff;color:var(--stop);cursor:pointer;font-size:12px;line-height:1;}
+  .add-point-btn{width:100%;padding:7px;border:1px dashed var(--line);border-radius:7px;background:var(--panel-2);color:var(--muted);font-size:12px;cursor:pointer;margin-top:2px;}
+
+  .panel-actions{display:flex;gap:8px;margin-top:16px;}
+  .panel-actions .btn{flex:1;justify-content:center;}
+
+  .obj-list{display:flex;flex-direction:column;gap:5px;margin-top:6px;max-height:220px;overflow:auto;}
+  .obj-list-item{
+    display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:7px;border:1px solid transparent;
+    font-size:12px;cursor:pointer;
+  }
+  .obj-list-item:hover{background:var(--panel-2);}
+  .obj-list-item.active{background:#e8f0fe;border-color:var(--accent);}
+  .obj-list-item .tag{font-size:9.5px;color:#fff;background:var(--muted);padding:2px 5px;border-radius:4px;flex:none;}
+  .obj-list-item .tag.polygon{background:#5f9dd8;} .obj-list-item .tag.circle{background:#c56bd0;} .obj-list-item .tag.line{background:#8b98a5;}
+
+  footer.status-bar{
+    grid-column:1/-1;padding:8px 20px;border-top:1px solid var(--line);background:var(--panel);
+    font-size:11px;color:var(--muted);display:flex;justify-content:space-between;
+  }
+
+  h3.section{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:18px 0 8px;border-top:1px solid var(--line);padding-top:14px;}
+  h3.section:first-child{border-top:none;padding-top:0;margin-top:0;}
+
+  @media (max-width:900px){ .stage{grid-template-columns:1fr;height:auto;} aside{border-left:none;border-top:1px solid var(--line);} }
+</style>
 </head>
 <body>
 
-    <div id="control-panel">
-        <div>
-            <h3>工場マップ可視化システム</h3>
-            <p style="margin:4px 0 0 0; font-size:11px; color:#64748b;">基準解像度: 1920x1080フィット型</p>
-        </div>
-        
-        <button id="btn-reset" style="background:#475569;">← 全体マップ（俯瞰）へ戻る</button>
-        
-        <hr style="border:0; border-top:1px solid #334155; margin:5px 0;">
+<header>
+  <div>
+    <h1>工場マップ ベクターエディタ（フェーズ2）</h1>
+    <p>DATA STRUCTURE: Polygon / Circle・Arc / Line — 頂点座標ベースで寸分違わず編集</p>
+  </div>
+  <div class="toolbar">
+    <button class="btn" id="mode-select">選択モード</button>
+    <div class="sep"></div>
+    <button class="btn" id="mode-polygon">＋ 多角形</button>
+    <button class="btn" id="mode-circle">＋ 円</button>
+    <button class="btn" id="mode-line">＋ 線</button>
+    <div class="sep"></div>
+    <button class="btn" id="mode-node">＋ ノード</button>
+    <button class="btn" id="mode-edge">＋ エッジ</button>
+    <button class="btn" id="btn-alert" style="border-color:var(--stop);color:var(--stop);">⚠ アラートを発生</button>
+    <div class="sep"></div>
+    <button class="btn" id="btn-export">JSONを書き出し</button>
+    <button class="btn primary" id="btn-save">スプレッドシートへ保存</button>
+  </div>
+</header>
 
-        <div>
-            <h4>オブジェクト新規配置</h4>
-            <p style="margin:2px 0 8px 0; font-size:11px; color:#94a3b8;">※拡大（ズームイン）した状態で追加してください</p>
-            <div class="btn-group">
-                <button onclick="addNewObject('rect')">■ 長方形</button>
-                <button onclick="addNewObject('square')">■ 正方形</button>
-                <button onclick="addNewObject('triangle')">▲ 三角形</button>
-                <button onclick="addNewObject('l-shape')">┗ L型ライン</button>
-            </div>
-        </div>
+<div class="stage">
+  <div class="canvas-wrap">
+    <div class="hint-bar">
+      <span id="hint-text">オブジェクトをクリックして選択・編集できます（エッジクリックで通行止めトグル）</span>
+      <b id="obj-count">0 オブジェクト</b>
+    </div>
+    <div class="canvas-frame">
+      <svg id="map" viewBox="0 0 1000 1360" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="groundTex" width="14" height="14" patternUnits="userSpaceOnUse">
+            <rect width="14" height="14" fill="var(--ground)"/>
+            <circle cx="3" cy="3" r="1.1" fill="var(--ground-line)" opacity=".35"/>
+            <circle cx="10" cy="9" r="1.1" fill="var(--ground-line)" opacity=".35"/>
+          </pattern>
+        </defs>
+        <rect x="0" y="0" width="1000" height="1360" fill="url(#groundTex)"/>
+        <g id="roads"></g>
+        <g id="network-layer"></g>
+        <g id="route-layer"></g>
+        <g id="objects-layer"></g>
+        <g id="draft-layer"></g>
+        <g id="handles-layer"></g>
+        <g id="alerts-layer"></g>
+      </svg>
+    </div>
+    <div class="coord-tip" id="coord-tip"></div>
+  </div>
 
-        <div id="editor-form" style="display: none; background:#1e293b; padding:12px; border-radius:6px; border:1px solid #334155;">
-            <h4>オブジェクト属性編集</h4>
-            <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
-                <div>
-                    <label>ライン・工程名</label>
-                    <input type="text" id="edit-name" oninput="updateSelectedAttributes()">
-                </div>
-                <div>
-                    <label>稼働状況ステータス</label>
-                    <select id="edit-status" onchange="updateSelectedAttributes()">
-                        <option value="default">指定なし（標準ブルー）</option>
-                        <option value="status-running">通常稼働（緑）</option>
-                        <option value="status-stopped">ライン停止・異常（赤）</option>
-                        <option value="status-maintenance">保全・調整中（黄）</option>
-                    </select>
-                </div>
-                <div>
-                    <label>デジタル改善事例 / メモ</label>
-                    <textarea id="edit-memo" rows="3" oninput="updateSelectedAttributes()"></textarea>
-                </div>
-                <button class="btn-danger" onclick="deleteSelectedObject()">選択オブジェクトを削除</button>
-            </div>
-        </div>
+  <aside>
+    <div class="phase2-panel">
+      <h4>🧭 搬送ルート探索（Dijkstra法）</h4>
+      <select id="route-from"></select>
+      <select id="route-to"></select>
+      <button class="btn primary" style="width:100%;justify-content:center;" id="btn-route">経路を検索</button>
+      <div class="route-result" id="route-result">ノードを2つ以上配置すると検索できます</div>
+      
+      <div style="font-weight: 700; font-size: 11px; margin-top: 12px; color: var(--muted);">検出された経路候補</div>
+      <ul class="candidate-list" id="candidate-list">
+        <li style="color:var(--muted); font-size:11px; text-align:center; padding: 4px 0;">検索を実行してください</li>
+      </ul>
 
-        <hr style="border:0; border-top:1px solid #334155; margin:5px 0;">
-
-        <div>
-            <h4>マップデータの管理</h4>
-            <p style="margin:2px 0 8px 0; font-size:11px; color:#94a3b8;">配置・編集した状態を保存・復元できます</p>
-            <div class="btn-group">
-                <button onclick="saveMapData()" style="background:#16a34a;">データを保存</button>
-                <button onclick="loadMapData()" style="background:#2563eb;">データを読込</button>
-            </div>
-        </div>
+      <div style="font-weight: 700; font-size: 11px; margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; color: var(--muted);">保存済みのパターン</div>
+      <ul class="saved-pattern-list" id="saved-pattern-list">
+        <li style="color:var(--muted); font-size:11px; text-align:center; padding: 4px 0;">保存されたルートはありません</li>
+      </ul>
     </div>
 
-    <div id="map-container">
-        <svg id="factory-svg" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet">
-            
-            <rect width="1920" height="1080" fill="#0f172a"/>
-            
-            <g id="environment-layer">
-                <polygon points="50,400 350,1050 780,1050 780,400" class="green-zone" />
-                <rect x="0" y="350" width="1920" height="45" class="road" />
-                <polygon points="780,395 780,1080 840,1080 840,395" class="road" />
-            </g>
-
-            <g id="viewport-group">
-                
-                <g id="building-dai2">
-                    <polygon points="550,40 1450,40 1450,310 550,310" class="building" data-zoom="1000,175,1.7"/>
-                    <text x="1000" y="175" class="building-label">第2工場</text>
-                </g>
-
-                <g id="building-head-chuzo">
-                    <polygon points="560,400 760,400 760,560 560,560" class="building" data-zoom="660,480,2.5"/>
-                    <text x="660" y="480" class="building-label">ヘッド鋳造工場</text>
-                </g>
-                <g id="building-block-chuzo">
-                    <polygon points="520,590 760,590 760,760 520,760" class="building" data-zoom="640,675,2.5"/>
-                    <text x="640" y="675" class="building-label">ブロック鋳造工場</text>
-                </g>
-                <g id="building-dai4">
-                    <polygon points="460,790 760,790 760,1020 380,1020" class="building" data-zoom="590,905,2.2"/>
-                    <text x="590" y="905" class="building-label">第4工場</text>
-                </g>
-
-                <g id="building-dai1-dai3">
-                    <polygon points="860,400 1180,400 1180,750 860,750" class="building" data-zoom="1020,575,1.8"/>
-                    <polygon points="860,750 1180,750 1180,1020 920,1020 920,850 860,850" class="building" data-zoom="1020,885,2.0"/>
-                    <text x="1020,575" class="building-label" id="label-d1">第1工場</text>
-                    <text x="1050,885" class="building-label" id="label-d3">第3工場</text>
-                </g>
-
-                <g id="building-dai7-dai6">
-                    <polygon points="1210,400 1600,400 1600,640 1210,640" class="building" data-zoom="1405,520,2.0"/>
-                    <polygon points="1210,670 1600,670 1600,1020 1210,1020" class="building" data-zoom="1405,845,1.8"/>
-                    <text x="1405" y="520" class="building-label" id="label-d7">第7工場</text>
-                    <text x="1405" y="845" class="building-label" id="label-d6">第6工場</text>
-                </g>
-
-
-                <g id="dynamic-lines-layer">
-                    <g class="user-object" data-id="obj_init_1" data-type="rect" data-name="小型差動ギヤ" data-status="status-running" data-memo="デジタル改善：RFID管理導入済み">
-                        <rect x="600" y="80" width="160" height="80" class="factory-line status-running" />
-                        <text x="680" y="120">小型差動ギヤ</text>
-                    </g>
-                    <g class="user-object" data-id="obj_init_2" data-type="l-shape" data-name="Jクランク変形ライン" data-status="status-stopped" data-memo="現在刃研磨ラインとの連携調整中">
-                        <polygon points="900,450 1050,450 1050,550 980,550 980,500 900,500" class="factory-line status-stopped" />
-                        <text x="975" y="475">Jクランク変形ライン</text>
-                    </g>
-                </g>
-
-                <g id="alert-dots-layer">
-                    <circle cx="975" cy="475" r="8" fill="#ef4444" class="status-dot" id="dot-alert-sample"/>
-                </g>
-
-            </g>
-        </svg>
+    <div class="phase2-panel">
+      <h4>⚠ 異常アラート（リアルタイム想定）</h4>
+      <div class="alert-log" id="alert-log">
+        <div class="alert-log-empty">アラートはまだありません</div>
+      </div>
     </div>
 
-    <script>
-        const svg = document.getElementById('factory-svg');
-        const viewportGroup = document.getElementById('viewport-group');
-        const buildings = document.querySelectorAll('.building');
-        const btnReset = document.getElementById('btn-reset');
-        const dynamicLinesLayer = document.getElementById('dynamic-lines-layer');
-        const alertDotsLayer = document.getElementById('alert-dots-layer');
-        
-        // フォーム用パーツ
-        const editorForm = document.getElementById('editor-form');
-        const editName = document.getElementById('edit-name');
-        const editStatus = document.getElementById('edit-status');
-        const editMemo = document.getElementById('edit-memo');
+    <div id="panel-empty">
+      <h2>オブジェクト情報</h2>
+      <div class="empty-note">
+        地図上のオブジェクトをクリックすると、ここに座標・ステータスが表示され、直接編集できます。<br><br>
+        頂点（ハンドル）はドラッグでも移動できます。数値を書き換えたら「反映」を押してください。
+      </div>
+      <h3 class="section">オブジェクト一覧</h3>
+      <div class="obj-list" id="obj-list-empty"></div>
+    </div>
 
-        let currentScale = 1;
-        let selectedObjectGroup = null;
+    <div id="panel-content" style="display:none;">
+      <h2 id="p-title">—</h2>
+      <div class="field">
+        <label>ID（自動採番・読取専用）</label>
+        <input type="text" id="p-id" disabled class="mono">
+      </div>
+      <div class="field">
+        <label>名称</label>
+        <input type="text" id="p-name">
+      </div>
+      <div class="field">
+        <label>ステータス</label>
+        <select id="p-status">
+          <option value="none">— なし —</option>
+          <option value="run">稼働中</option>
+          <option value="stop">停止中</option>
+          <option value="warn">段取/点検</option>
+        </select>
+      </div>
 
-        // --- 1. ズームイン・ズームアウトアニメーション機能 ---
-        function animateTransform(targetX, targetY, targetScale) {
-            currentScale = targetScale;
-            const transX = 960 - targetX * targetScale;
-            const transY = 540 - targetY * targetScale;
+      <div id="p-coords"></div>
 
-            viewportGroup.style.transition = "transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)";
-            viewportGroup.style.transform = `translate(${transX}px, ${transY}px) scale(${targetScale})`;
-        }
+      <div class="panel-actions">
+        <button class="btn primary" id="p-apply">反映</button>
+        <button class="btn danger" id="p-delete">削除</button>
+      </div>
 
-        // 各工場区画クリックで対応座標へズームイン
-        buildings.forEach(building => {
-            building.addEventListener('click', (e) => {
-                if (e.target !== building) return; // 内部のオブジェクトクリック時はズームさせない
-                const zoomData = building.getAttribute('data-zoom').split(',');
-                animateTransform(parseFloat(zoomData[0]), parseFloat(zoomData[1]), parseFloat(zoomData[2]));
-                e.stopPropagation();
-            });
-        });
+      <h3 class="section">オブジェクト一覧</h3>
+      <div class="obj-list" id="obj-list"></div>
+    </div>
+  </aside>
 
-        // 俯瞰（リセット）
-        btnReset.addEventListener('click', () => {
-            animateTransform(960, 540, 1);
-            clearSelection();
-        });
+  <footer class="status-bar">
+    <span id="status-left">準備完了</span>
+    <span>Type A: Polygon ／ Type B: Circle ／ Type C: Line</span>
+  </footer>
+</div>
 
-        // --- 2. 新規オブジェクト（三角形、L型、長方形、正方形）の追加機能 ---
-        function addNewObject(shapeType) {
-            if (currentScale === 1) {
-                alert("オブジェクトを追加するには、まず追加したい先の工場マップをタップして拡大（ズームイン）してください。");
-                return;
-            }
+<script>
+/* ============================================================
+   1. データ構造（仕様どおり）
+   ============================================================ */
+let objects = [
+  { id:"bld-001", type:"polygon", name:"第4工場", status:"run",
+    points:[[150,230],[215,175],[300,175],[300,460],[150,460]] },
+  { id:"bld-002", type:"polygon", name:"第1工場", status:"run",
+    points:[[295,565],[585,565],[585,835],[295,835]] },
+  { id:"bld-003", type:"polygon", name:"第2工場", status:"stop",
+    points:[[760,405],[965,405],[965,845],[760,845]] },
+  { id:"bld-004", type:"polygon", name:"ブロック鍛造工場", status:"run",
+    points:[[330,150],[565,150],[565,320],[330,320]] },
+  { id:"eq-001", type:"circle", name:"貯蔵サイロ", status:"run", cx:905, cy:905, r:26 },
+  { id:"path-001", type:"line", name:"メイン通路 中心線", status:"none", x1:0, y1:487, x2:1000, y2:487, width:6 },
+];
+let nextIdNum = 5;
 
-            const id = "obj_" + Date.now();
-            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            g.setAttribute("class", "user-object");
-            g.setAttribute("data-id", id);
-            g.setAttribute("data-type", shapeType);
-            g.setAttribute("data-name", "新規ライン工程");
-            g.setAttribute("data-status", "default");
-            g.setAttribute("data-memo", "");
+/* ============================================================
+   フェーズ2 骨格：搬送ルート用ノード/エッジ
+   ============================================================ */
+let nodes = [
+  { id:"n1", x:270, y:487 }, { id:"n2", x:617, y:487 },
+  { id:"n3", x:270, y:865 }, { id:"n4", x:617, y:865 },
+  { id:"n5", x:617, y:140 }, { id:"n6", x:270, y:140 },
+  { id:"n7", x:0,   y:487 }, { id:"n8", x:1000, y:487 },
+];
 
-            // ズームインしている画面中央付近の座標を逆算して初期配置
-            const matrix = viewportGroup.style.transform.match(/translate\(([^px]+)px,\s*([^px]+)px\)/);
-            let cx = 960, cy = 540;
-            if (matrix) {
-                cx = (960 - parseFloat(matrix[1])) / currentScale;
-                cy = (540 - parseFloat(matrix[2])) / currentScale;
-            }
+// active: true/false フラグを付与。また、安全優先ルートの計算用の safetyCost （例: 混雑しやすい中央通路を 1000 に設定）を定義
+let edges = [
+  { id:"e1", from:"n6", to:"n1", active:true, safetyCost: null }, 
+  { id:"e2", from:"n1", to:"n3", active:true, safetyCost: null },
+  { id:"e3", from:"n5", to:"n2", active:true, safetyCost: null }, 
+  { id:"e4", from:"n2", to:"n4", active:true, safetyCost: null },
+  { id:"e5", from:"n7", to:"n1", active:true, safetyCost: null }, 
+  // 中央の連絡通路（e6）を危険度が高い（safetyCost が大きい）ルートと仮定
+  { id:"e6", from:"n1", to:"n2", active:true, safetyCost: 800 }, 
+  { id:"e7", from:"n2", to:"n8", active:true, safetyCost: null },
+];
+let nextNodeNum = 9, nextEdgeNum = 8;
 
-            let shapeEl;
-            let textX = cx, textY = cy;
+let alerts = [];
+let nextAlertNum = 1;
+let edgeDraftFrom = null; // エッジ作図中に選んだ始点ノードid
 
-            if (shapeType === 'rect') {
-                shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                shapeEl.setAttribute("x", cx - 80); shapeEl.setAttribute("y", cy - 40);
-                shapeEl.setAttribute("width", 160); shapeEl.setAttribute("height", 80);
-            } else if (shapeType === 'square') {
-                shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                shapeEl.setAttribute("x", cx - 50); shapeEl.setAttribute("y", cy - 50);
-                shapeEl.setAttribute("width", 100); shapeEl.setAttribute("height", 100);
-            } else if (shapeType === 'triangle') {
-                shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-                shapeEl.setAttribute("points", `${cx},${cy - 50} ${cx + 60},${cy + 50} ${cx - 60},${cy + 50}`);
-            } else if (shapeType === 'l-shape') {
-                shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-                shapeEl.setAttribute("points", `${cx - 50},${cy - 50} ${cx + 50},${cy - 50} ${cx + 50},${cy + 50} ${cx},${cy + 50} ${cx},${cy} ${cx - 50},${cy}`);
-                textX = cx + 15; textY = cy - 15;
-            }
+let selectedId = null;
+let drawMode = null;      // null | 'polygon' | 'circle' | 'line'
+let draft = { points:[], center:null };
+let dragging = null;      // {objId, kind:'point'|'center'|'radius'|'p1'|'p2', idx}
 
-            shapeEl.setAttribute("class", "factory-line");
-            g.appendChild(shapeEl);
+// ルート検索および保存用ステート
+let currentCandidates = [];
+let savedPatterns = [];
 
-            const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-            textEl.setAttribute("x", textX);
-            textEl.setAttribute("y", textY);
-            textEl.textContent = "新規ライン工程";
-            g.appendChild(textEl);
+const svg = document.getElementById("map");
+const svgNS = "http://www.w3.org/2000/svg";
+const objectsLayer = document.getElementById("objects-layer");
+const draftLayer = document.getElementById("draft-layer");
+const handlesLayer = document.getElementById("handles-layer");
+const roadsLayer = document.getElementById("roads");
+const coordTip = document.getElementById("coord-tip");
+const hintText = document.getElementById("hint-text");
+const objCount = document.getElementById("obj-count");
+const statusLeft = document.getElementById("status-left");
 
-            dynamicLinesLayer.appendChild(g);
-            setupObjectEvents(g);
-            selectObject(g);
-        }
+/* ---- 背景の道路（表示専用・編集対象外の参考レイヤー） ---- */
+function drawRoads(){
+  roadsLayer.innerHTML = "";
+  const roads = [[0,470,1000,34],[600,140,34,1080],[255,140,30,1080],[0,850,1000,30]];
+  roads.forEach(([x,y,w,h])=>{
+    const r = document.createElementNS(svgNS,"rect");
+    r.setAttribute("x",x); r.setAttribute("y",y); r.setAttribute("width",w); r.setAttribute("height",h);
+    r.setAttribute("fill","var(--road)");
+    roadsLayer.appendChild(r);
+  });
+}
+drawRoads();
 
-        // --- 3. オブジェクト選択＆フォーム編集ロジック ---
-        function setupObjectEvents(g) {
-            const shape = g.querySelector('.factory-line');
-            shape.addEventListener('click', (e) => {
-                selectObject(g);
-                e.stopPropagation();
-            });
-        }
+/* ---- 座標変換：クライアント座標 → SVG内部座標 ---- */
+function toSvgPoint(evt){
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const m = svg.getScreenCTM().inverse();
+  const p = pt.matrixTransform(m);
+  return { x: Math.round(p.x), y: Math.round(p.y) };
+}
 
-        // 最初からあるサンプル用にもイベントを適用
-        document.querySelectorAll('.user-object').forEach(g => setupObjectEvents(g));
+/* ============================================================
+   2. 描画
+   ============================================================ */
+function render(){
+  objectsLayer.innerHTML = "";
+  objCount.textContent = objects.length + " オブジェクト";
 
-        function selectObject(g) {
-            clearSelection();
-            selectedObjectGroup = g;
-            g.querySelector('.factory-line').classList.add('selected');
-            
-            // フォームに現在の値をセット
-            editName.value = g.getAttribute('data-name') || "";
-            editStatus.value = g.getAttribute('data-status') || "default";
-            editMemo.value = g.getAttribute('data-memo') || "";
-            editorForm.style.display = 'block';
-        }
+  objects.forEach(obj=>{
+    const g = document.createElementNS(svgNS,"g");
+    g.dataset.id = obj.id;
+    g.style.cursor = drawMode ? "default" : "pointer";
 
-        function clearSelection() {
-            document.querySelectorAll('.factory-line').forEach(el => el.classList.remove('selected'));
-            selectedObjectGroup = null;
-            editorForm.style.display = 'none';
-        }
+    let shape;
+    if(obj.type === "polygon"){
+      shape = document.createElementNS(svgNS,"polygon");
+      shape.setAttribute("points", obj.points.map(p=>p.join(",")).join(" "));
+    } else if(obj.type === "circle"){
+      shape = document.createElementNS(svgNS,"circle");
+      shape.setAttribute("cx",obj.cx); shape.setAttribute("cy",obj.cy); shape.setAttribute("r",obj.r);
+    } else if(obj.type === "line"){
+      shape = document.createElementNS(svgNS,"line");
+      shape.setAttribute("x1",obj.x1); shape.setAttribute("y1",obj.y1);
+      shape.setAttribute("x2",obj.x2); shape.setAttribute("y2",obj.y2);
+      shape.setAttribute("stroke-width", obj.width||4);
+      shape.setAttribute("stroke-linecap","round");
+    }
+    shape.setAttribute("class","obj-shape"+(obj.id===selectedId?" selected":""));
+    if(obj.type!=="line"){
+      shape.style.fill = "var(--bld-fill)";
+      shape.style.stroke = "var(--bld-stroke)";
+    } else {
+      shape.style.stroke = "var(--bld-stroke)";
+      shape.style.fill = "none";
+    }
+    g.appendChild(shape);
 
-        // 入力フォームの内容をリアルタイムにSVG内部属性＆テキストへ反映
-        function updateSelectedAttributes() {
-            if (!selectedObjectGroup) return;
-            
-            const name = editName.value;
-            const status = editStatus.value;
-            const memo = editMemo.value;
+    // ラベル
+    const c = centroid(obj);
+    if(c){
+      const label = document.createElementNS(svgNS,"text");
+      label.setAttribute("class","obj-label");
+      label.setAttribute("x", c.x); label.setAttribute("y", c.y);
+      label.setAttribute("text-anchor","middle");
+      label.textContent = obj.name || obj.id;
+      g.appendChild(label);
 
-            selectedObjectGroup.setAttribute('data-name', name);
-            selectedObjectGroup.setAttribute('data-status', status);
-            selectedObjectGroup.setAttribute('data-memo', memo);
+      if(obj.status && obj.status!=="none"){
+        const dot = document.createElementNS(svgNS,"circle");
+        dot.setAttribute("cx", c.x+  (obj.name? Math.max(18, obj.name.length*3.4):18) );
+        dot.setAttribute("cy", c.y-14);
+        dot.setAttribute("r",5);
+        dot.setAttribute("class","status-badge "+obj.status);
+        g.appendChild(dot);
+      }
+    }
 
-            // テキスト要素の書き換え
-            selectedObjectGroup.querySelector('text').textContent = name;
+    g.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      if(drawMode) return;
+      selectObject(obj.id);
+    });
 
-            // クラス（色替え）の適用
-            const shape = selectedObjectGroup.querySelector('.factory-line');
-            shape.className.baseVal = "factory-line " + (status !== 'default' ? status : '');
-            if (shape.classList.contains('selected') === false) shape.classList.add('selected');
+    objectsLayer.appendChild(g);
+  });
 
-            updateAlertDots(); // ステータス変更に伴いアラートドットの位置を再計算
-        }
+  renderHandles();
+  renderObjectList();
+  renderNetwork();
+  renderAlerts();
+}
 
-        function deleteSelectedObject() {
-            if (selectedObjectGroup && confirm("このオブジェクトを削除してよろしいですか？")) {
-                selectedObjectGroup.remove();
-                clearSelection();
-                updateAlertDots();
-            }
-        }
+function centroid(obj){
+  if(obj.type==="polygon"){
+    const n = obj.points.length;
+    const sx = obj.points.reduce((s,p)=>s+p[0],0)/n;
+    const sy = obj.points.reduce((s,p)=>s+p[1],0)/n;
+    return {x:sx, y:sy};
+  }
+  if(obj.type==="circle") return {x:obj.cx, y:obj.cy};
+  if(obj.type==="line") return {x:(obj.x1+obj.x2)/2, y:(obj.y1+obj.y2)/2 - 10};
+  return null;
+}
 
-        // 停止（赤色）ステータスのラインの上にネオン点滅ドットを表示させる自動マッピング
-        function updateAlertDots() {
-            alertDotsLayer.innerHTML = ""; // 一旦クリア
-            document.querySelectorAll('.user-object').forEach(g => {
-                if (g.getAttribute('data-status') === 'status-stopped') {
-                    const textEl = g.querySelector('text');
-                    const cx = textEl.getAttribute('x');
-                    const cy = textEl.getAttribute('y');
-                    
-                    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    dot.setAttribute("cx", cx);
-                    dot.setAttribute("cy", cy);
-                    dot.setAttribute("r", "8");
-                    dot.setAttribute("fill", "#ef4444");
-                    dot.setAttribute("class", "status-dot");
-                    alertDotsLayer.appendChild(dot);
-                }
-            });
-        }
-        svg.addEventListener('click', () => clearSelection());
+/* ============================================================
+   フェーズ2：ノード/エッジ（搬送ルート）の描画
+   ============================================================ */
+const networkLayer = document.getElementById("network-layer");
+function nodeById(id){ return nodes.find(n=>n.id===id); }
 
-        // --- 4. 移動（ドラッグ＆ドロップ）の実装 ---
-        let dragElement = null;
-        let dragGroup = null;
-        let offset = { x: 0, y: 0 };
+function renderNetwork(){
+  networkLayer.innerHTML = "";
+  edges.forEach(e=>{
+    const a = nodeById(e.from), b = nodeById(e.to);
+    if(!a||!b) return;
+    const l = document.createElementNS(svgNS,"line");
+    l.setAttribute("x1",a.x); l.setAttribute("y1",a.y);
+    l.setAttribute("x2",b.x); l.setAttribute("y2",b.y);
+    
+    // エッジの活性・非活性表示の出し分け
+    if(e.active) {
+      l.setAttribute("class","network-edge");
+    } else {
+      l.setAttribute("class","network-edge disabled");
+    }
 
-        svg.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('factory-line')) {
-                dragElement = e.target;
-                dragGroup = dragElement.parentElement;
-                const p = getSVGPoint(e);
-                
-                if (dragElement.tagName === 'rect') {
-                    offset.x = p.x - parseFloat(dragElement.getAttribute('x'));
-                    offset.y = p.y - parseFloat(dragElement.getAttribute('y'));
-                } else if (dragElement.tagName === 'polygon') {
-                    dragElement.dataset.startPoints = dragElement.getAttribute('points');
-                    dragElement.dataset.startX = p.x;
-                    dragElement.dataset.startY = p.y;
-                }
-            }
-        });
+    // エッジクリックで活性状態をトグル反転
+    l.addEventListener("click", (evt)=>{
+      evt.stopPropagation();
+      e.active = !e.active;
+      statusLeft.textContent = `エッジ[${e.id}]の活性状態を${e.active ? 'ON' : 'OFF'}に変更しました`;
+      render();
+      autoRecalculate(); // 通行止めになった瞬間に自動で経路再探索
+    });
 
-        svg.addEventListener('mousemove', (e) => {
-            if (dragElement && dragGroup) {
-                const p = getSVGPoint(e);
-                const textEl = dragGroup.querySelector('text');
-                
-                if (dragElement.tagName === 'rect') {
-                    const newX = p.x - offset.x;
-                    const newY = p.y - offset.y;
-                    dragElement.setAttribute('x', newX);
-                    dragElement.setAttribute('y', newY);
-                    
-                    // テキスト位置も長方形の中央へ追従
-                    const w = parseFloat(dragElement.getAttribute('width'));
-                    const h = parseFloat(dragElement.getAttribute('height'));
-                    textEl.setAttribute('x', newX + w / 2);
-                    textEl.setAttribute('y', newY + h / 2);
-                    
-                } else if (dragElement.tagName === 'polygon') {
-                    const dx = p.x - parseFloat(dragElement.dataset.startX);
-                    const dy = p.y - parseFloat(dragElement.dataset.startY);
-                    const originalPoints = dragElement.dataset.startPoints.split(' ');
-                    
-                    let sumX = 0, sumY = 0, count = 0;
-                    const newPoints = originalPoints.map(pt => {
-                        const coords = pt.split(',');
-                        if(coords.length === 2) {
-                            const nx = parseFloat(coords[0]) + dx;
-                            const ny = parseFloat(coords[1]) + dy;
-                            sumX += nx; sumY += ny; count++;
-                            return `${nx},${ny}`;
-                        }
-                        return pt;
-                    }).join(' ');
-                    
-                    dragElement.setAttribute('points', newPoints);
-                    
-                    // 多角形（L型・三角形）の各頂点の平均値にテキスト位置を自動追従
-                    if (count > 0) {
-                        // L型の場合は重心が少しずれるため微調整を入れるとより綺麗になります
-                        textEl.setAttribute('x', sumX / count + (dragGroup.getAttribute('data-type')==='l-shape'? 15 : 0));
-                        textEl.setAttribute('y', sumY / count - (dragGroup.getAttribute('data-type')==='l-shape'? 15 : 0));
-                    }
-                }
-                updateAlertDots();
-            }
-        });
+    networkLayer.appendChild(l);
+  });
+  nodes.forEach(n=>{
+    const c = document.createElementNS(svgNS,"circle");
+    c.setAttribute("cx",n.x); c.setAttribute("cy",n.y); c.setAttribute("r",6);
+    c.setAttribute("class","network-node"+(edgeDraftFrom===n.id?" picked":""));
+    c.addEventListener("click",(e)=>{
+      e.stopPropagation();
+      if(drawMode==="edge") pickEdgeNode(n.id);
+    });
+    networkLayer.appendChild(c);
+  });
+  populateNodeSelects();
+}
 
-        svg.addEventListener('mouseup', () => {
-            dragElement = null;
-            dragGroup = null;
-        });
+function pickEdgeNode(id){
+  if(!edgeDraftFrom){
+    edgeDraftFrom = id;
+    hintText.textContent = "終点にするノードをクリックしてください（同じノードでキャンセル）";
+    render();
+    return;
+  }
+  if(edgeDraftFrom === id){ edgeDraftFrom = null; hintText.textContent="始点にするノードをクリックしてください"; render(); return; }
+  edges.push({ id:"e"+(nextEdgeNum++), from:edgeDraftFrom, to:id, active:true, safetyCost: null });
+  edgeDraftFrom = null;
+  setMode(null);
+  render();
+  statusLeft.textContent = "エッジを追加しました";
+}
 
-        function getSVGPoint(e) {
-            const point = svg.createSVGPoint();
-            point.x = e.clientX; point.y = e.clientY;
-            return point.matrixTransform(svg.getScreenCTM().inverse());
-        }
+function populateNodeSelects(){
+  const from = document.getElementById("route-from"), to = document.getElementById("route-to");
+  if(!from || !to) return;
+  const prevFrom = from.value, prevTo = to.value;
+  const opts = nodes.map(n=>`<option value="${n.id}">${n.id} (${n.x},${n.y})</option>`).join("");
+  from.innerHTML = opts; to.innerHTML = opts;
+  if(nodes.some(n=>n.id===prevFrom)) from.value = prevFrom;
+  if(nodes.some(n=>n.id===prevTo)) to.value = prevTo;
+}
 
-        // --- 5. マップデータの保存（JSON出力）と読み込み機能 ---
-        function saveMapData() {
-            const objectsData = [];
-            document.querySelectorAll('.user-object').forEach(g => {
-                const shape = g.querySelector('.factory-line');
-                const text = g.querySelector('text');
-                
-                const obj = {
-                    id: g.getAttribute('data-id'),
-                    type: g.getAttribute('data-type'),
-                    name: g.getAttribute('data-name'),
-                    status: g.getAttribute('data-status'),
-                    memo: g.getAttribute('data-memo'),
-                    textX: text.getAttribute('x'),
-                    textY: text.getAttribute('y')
-                };
+/* ---- Dijkstra法による最短経路探索 ---- */
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
 
-                if (shape.tagName === 'rect') {
-                    obj.x = shape.getAttribute('x');
-                    obj.y = shape.getAttribute('y');
-                    obj.width = shape.getAttribute('width');
-                    obj.height = shape.getAttribute('height');
-                } else if (shape.tagName === 'polygon') {
-                    obj.points = shape.getAttribute('points');
-                }
-                objectsData.push(obj);
-            });
+function dijkstra(startId, endId, costType){
+  const d = {}, prev = {}, visited = {};
+  nodes.forEach(n=> d[n.id] = Infinity);
+  d[startId] = 0;
+  const adj = {};
+  nodes.forEach(n=> adj[n.id]=[]);
+  
+  edges.forEach(e=>{
+    // 非活性（通行止め）のエッジはグラフの探索対象から完全に除外する
+    if(!e.active) return;
 
-            const jsonStr = JSON.stringify(objectsData, null, 2);
-            localStorage.setItem('factory_map_user_data', jsonStr);
-            alert("ブラウザの内部ストレージ(LocalStorage)に現在の配置データ（" + objectsData.length + "件）を一時保存しました。\n\n【バックアップ用JSONデータ】:\n" + jsonStr);
-            console.log("Saved Data:", jsonStr);
-        }
+    const distance = dist(nodeById(e.from), nodeById(e.to));
+    let weight = distance;
+    
+    // 安全優先の場合
+    if(costType === 'safety' && e.safetyCost) {
+      weight += e.safetyCost; 
+    }
 
-        function loadMapData() {
-            const jsonStr = localStorage.getItem('factory_map_user_data');
-            if (!jsonStr) {
-                alert("保存されたデータが見つかりません。まずは「データを保存」を押してください。");
-                return;
-            }
+    adj[e.from]?.push({to:e.to, w: weight});
+    adj[e.to]?.push({to:e.from, w: weight}); // 双方向
+  });
 
-            const objectsData = JSON.parse(jsonStr);
-            dynamicLinesLayer.innerHTML = ""; // 現在の動的オブジェクトを全クリア
+  while(true){
+    let u = null, best = Infinity;
+    nodes.forEach(n=>{ if(!visited[n.id] && d[n.id]<best){ best=d[n.id]; u=n.id; } });
+    if(u===null) break;
+    visited[u] = true;
+    if(u===endId) break;
+    (adj[u]||[]).forEach(({to,w})=>{
+      if(d[u]+w < d[to]){ d[to] = d[u]+w; prev[to] = u; }
+    });
+  }
+  if(d[endId]===undefined || d[endId]===Infinity) return null;
+  const path = [endId];
+  let cur = endId;
+  while(prev[cur]){ cur = prev[cur]; path.unshift(cur); }
+  return { path, distance: d[endId] };
+}
 
-            objectsData.forEach(obj => {
-                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                g.setAttribute("class", "user-object");
-                g.setAttribute("data-id", obj.id);
-                g.setAttribute("data-type", obj.type);
-                g.setAttribute("data-name", obj.name);
-                g.setAttribute("data-status", obj.status);
-                g.setAttribute("data-memo", obj.memo);
+const routeLayer = document.getElementById("route-layer");
 
-                let shapeEl;
-                if (obj.type === 'rect' || obj.type === 'square') {
-                    shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-                    shapeEl.setAttribute("x", obj.x);
-                    shapeEl.setAttribute("y", obj.y);
-                    shapeEl.setAttribute("width", obj.width);
-                    shapeEl.setAttribute("height", obj.height);
-                } else {
-                    shapeEl = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
-                    shapeEl.setAttribute("points", obj.points);
-                }
+// 活性状態が切り替わったときに現在選択中のルートをリアルタイムで再計算する仕組み
+function autoRecalculate() {
+  const fromId = document.getElementById("route-from").value;
+  const toId = document.getElementById("route-to").value;
+  if(fromId && toId && fromId !== toId) {
+    calculateMultipleRoutes(fromId, toId);
+  }
+}
 
-                shapeEl.setAttribute("class", "factory-line " + (obj.status !== 'default' ? obj.status : ''));
-                g.appendChild(shapeEl);
+// 複数の走行パターン（最短時間・安全第一）を算出する関数
+function calculateMultipleRoutes(fromId, toId) {
+  routeLayer.innerHTML = "";
+  const resultBox = document.getElementById("route-result");
+  const candidateList = document.getElementById("candidate-list");
+  
+  currentCandidates = [];
+  candidateList.innerHTML = "";
 
-                const textEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-                textEl.setAttribute("x", obj.textX);
-                textEl.setAttribute("y", obj.textY);
-                textEl.textContent = obj.name;
-                g.appendChild(textEl);
+  // 1. 最短時間ルート（単純な物理距離優先）
+  const timeRoute = dijkstra(fromId, toId, 'distance');
+  if (timeRoute) {
+    currentCandidates.push({
+      type: "最短時間ルート",
+      path: timeRoute.path,
+      distance: timeRoute.distance,
+      costType: 'distance',
+      desc: "物理的距離を最優先した生産効率重視のルートです。"
+    });
+  }
 
-                dynamicLinesLayer.appendChild(g);
-                setupObjectEvents(g);
-            });
+  // 2. 安全第一ルート（混雑や制限がある道路に安全コストを加味）
+  const safetyRoute = dijkstra(fromId, toId, 'safety');
+  if (safetyRoute) {
+    // 最短時間と経路が同じ場合は「最適バランス」として統合、異なる場合は別々に提示する
+    const isSame = timeRoute && JSON.stringify(timeRoute.path) === JSON.stringify(safetyRoute.path);
+    currentCandidates.push({
+      type: isSame ? "最適バランス（最短＆安全）" : "安全第一ルート",
+      path: safetyRoute.path,
+      distance: safetyRoute.distance,
+      costType: 'safety',
+      desc: isSame ? "安全性と速度のバランスが取れた推奨ルートです。" : "混雑・狭小エリアを極力回避したルートです。"
+    });
+  }
 
-            clearSelection();
-            updateAlertDots();
-            alert("前回保存された配置データ（" + objectsData.length + "件）を正常に読み込み・展開しました。");
-        }
+  if (currentCandidates.length === 0) {
+    resultBox.innerHTML = "⚠ 経路が見つかりません（すべての接続が遮断されています）";
+    candidateList.innerHTML = `<li style="color:var(--stop); font-size:11px; text-align:center; padding: 4px 0;">通行可能な経路がありません</li>`;
+    return;
+  }
 
-        // 初期ロード時にアラートドットの配置を計算
-        updateAlertDots();
-    </script>
+  resultBox.innerHTML = `候補が ${currentCandidates.length} 件見つかりました。リストから選択・保存できます。`;
+
+  // リストを生成
+  currentCandidates.forEach((candidate, idx) => {
+    const li = document.createElement("li");
+    li.className = "candidate-item";
+    li.innerHTML = `
+      <div class="candidate-title">
+        <span>${candidate.type}</span>
+        <b>${Math.round(candidate.distance)} px</b>
+      </div>
+      <div style="font-size:10.5px; margin-top:2px;">経路: ${candidate.path.join(" ➔ ")}</div>
+      <div class="candidate-info">${candidate.desc}</div>
+      <div class="pattern-actions">
+        <button class="btn primary" style="padding:4px 8px; font-size:10.5px; border-radius:4px;" onclick="savePattern(${idx}); event.stopPropagation();">このルートを保存</button>
+      </div>
+    `;
+    
+    // クリックでSVGマップにルートを太線ハイライト
+    li.addEventListener("click", () => {
+      drawRouteHighlight(candidate.path);
+    });
+    
+    candidateList.appendChild(li);
+  });
+
+  // デフォルトで最初の候補（最短）を描画しておく
+  drawRouteHighlight(currentCandidates[0].path);
+}
+
+// 経路をSVG上に太線で描画
+function drawRouteHighlight(path) {
+  routeLayer.innerHTML = "";
+  for(let i=0;i<path.length-1;i++){
+    const a = nodeById(path[i]), b = nodeById(path[i+1]);
+    const l = document.createElementNS(svgNS,"line");
+    l.setAttribute("x1",a.x); l.setAttribute("y1",a.y); l.setAttribute("x2",b.x); l.setAttribute("y2",b.y);
+    l.setAttribute("class","route-highlight");
+    routeLayer.appendChild(l);
+  }
+}
+
+// 探索ボタンのクリックイベント
+document.getElementById("btn-route").addEventListener("click", ()=>{
+  const fromId = document.getElementById("route-from").value;
+  const toId = document.getElementById("route-to").value;
+  if(!fromId || !toId || nodes.length<2){
+    document.getElementById("route-result").textContent = "ノードを2つ以上配置してください"; return;
+  }
+  if(fromId===toId){ document.getElementById("route-result").textContent = "出発地と到着地が同じです"; return; }
+  
+  calculateMultipleRoutes(fromId, toId);
+  statusLeft.textContent = "マルチ経路を算出しました";
+});
+
+/* ---- パターン保存と編集機能（非活性化への配慮） ---- */
+function savePattern(index) {
+  const candidate = currentCandidates[index];
+  const defaultName = `${candidate.type}_${candidate.path[0]}to${candidate.path[candidate.path.length-1]}`;
+  
+  const pattern = {
+    id: "pat-" + Date.now(),
+    name: defaultName,
+    path: [...candidate.path],
+    distance: candidate.distance
+  };
+
+  savedPatterns.push(pattern);
+  statusLeft.textContent = `パターン「${pattern.name}」を保存しました`;
+  renderSavedPatterns();
+}
+
+function renderSavedPatterns() {
+  const list = document.getElementById("saved-pattern-list");
+  list.innerHTML = "";
+
+  if(savedPatterns.length === 0) {
+    list.innerHTML = `<li style="color:var(--muted); font-size:11px; text-align:center; padding: 4px 0;">保存されたルートはありません</li>`;
+    return;
+  }
+
+  savedPatterns.forEach((pat, idx) => {
+    const li = document.createElement("li");
+    li.className = "saved-pattern-item";
+    li.innerHTML = `
+      <input type="text" class="pattern-input" value="${pat.name}" onchange="updatePatternName('${pat.id}', this.value)" title="クリックしてパターン名を変更">
+      <div style="font-size:10.5px; color:var(--muted);">経路: ${pat.path.join(" ➔ ")} (${Math.round(pat.distance)} px)</div>
+      <div class="pattern-actions">
+        <button class="btn" style="padding:3px 6px; font-size:10px; border-radius:4px;" onclick="drawRouteHighlight(${JSON.stringify(pat.path)})">表示</button>
+        <button class="btn danger" style="padding:3px 6px; font-size:10px; border-radius:4px;" onclick="deletePattern('${pat.id}')">削除</button>
+      </div>
+    `;
+    list.appendChild(li);
+  });
+}
+
+function updatePatternName(id, newName) {
+  const pat = savedPatterns.find(p => p.id === id);
+  if(pat) {
+    pat.name = newName;
+    statusLeft.textContent = `パターン名を更新しました`;
+  }
+}
+
+function deletePattern(id) {
+  savedPatterns = savedPatterns.filter(p => p.id !== id);
+  statusLeft.textContent = "保存パターンを削除しました";
+  renderSavedPatterns();
+}
+
+
+/* ============================================================
+   フェーズ2：異常アラート
+   ============================================================ */
+const alertsLayer = document.getElementById("alerts-layer");
+function renderAlerts(){
+  alertsLayer.innerHTML = "";
+  alerts.forEach(a=>{
+    const ring = document.createElementNS(svgNS,"circle");
+    ring.setAttribute("cx",a.x); ring.setAttribute("cy",a.y); ring.setAttribute("r",8);
+    ring.setAttribute("class","alert-ring");
+    alertsLayer.appendChild(ring);
+    const dot = document.createElementNS(svgNS,"circle");
+    dot.setAttribute("cx",a.x); dot.setAttribute("cy",a.y); dot.setAttribute("r",5);
+    dot.setAttribute("class","alert-dot");
+    alertsLayer.appendChild(dot);
+  });
+}
+
+function renderAlertLog(){
+  const log = document.getElementById("alert-log");
+  if(alerts.length===0){ log.innerHTML = '<div class="alert-log-empty">アラートはまだありません</div>'; return; }
+  log.innerHTML = "";
+  [...alerts].reverse().forEach(a=>{
+    const row = document.createElement("div");
+    row.className = "alert-log-item";
+    row.innerHTML = `<b>⚠ ${a.message}</b><span>x:${a.x} / y:${a.y} ・ ${a.ts}</span>`;
+    log.appendChild(row);
+  });
+}
+
+function simulateAlert(){
+  const targets = objects.length ? objects : null;
+  let x,y,label;
+  if(targets){
+    const t = targets[Math.floor(Math.random()*targets.length)];
+    const c = centroid(t) || {x:500,y:680};
+    x = Math.round(c.x); y = Math.round(c.y); label = (t.name||t.id)+" で異常を検知";
+  } else {
+    x = 500; y = 680; label = "異常を検知";
+  }
+  alerts.push({ id:"alert-"+(nextAlertNum++), x, y, message:label, ts:new Date().toLocaleTimeString("ja-JP") });
+  render();
+  renderAlertLog();
+  statusLeft.textContent = "アラートが発生しました（デモ用シミュレーション）";
+}
+document.getElementById("btn-alert").addEventListener("click", simulateAlert);
+renderAlertLog();
+
+
+
+/* ---- 選択中オブジェクトのドラッグハンドル ---- */
+function renderHandles(){
+  handlesLayer.innerHTML = "";
+  const obj = objects.find(o=>o.id===selectedId);
+  if(!obj || drawMode) return;
+
+  function mkHandle(x,y,kind,idx,extraClass){
+    const h = document.createElementNS(svgNS,"circle");
+    h.setAttribute("cx",x); h.setAttribute("cy",y); h.setAttribute("r",7);
+    h.setAttribute("class","handle"+(extraClass?" "+extraClass:""));
+    h.addEventListener("pointerdown",(e)=>{
+      e.stopPropagation();
+      dragging = {objId:obj.id, kind, idx};
+      h.setPointerCapture(e.pointerId);
+    });
+    handlesLayer.appendChild(h);
+  }
+
+  if(obj.type==="polygon"){
+    obj.points.forEach((p,i)=> mkHandle(p[0],p[1],"point",i));
+  } else if(obj.type==="circle"){
+    mkHandle(obj.cx,obj.cy,"center");
+    mkHandle(obj.cx+obj.r,obj.cy,"radius",null,"radius");
+  } else if(obj.type==="line"){
+    mkHandle(obj.x1,obj.y1,"p1");
+    mkHandle(obj.x2,obj.y2,"p2");
+  }
+}
+
+svg.addEventListener("pointermove",(e)=>{
+  if(!dragging) return;
+  const p = toSvgPoint(e);
+  const obj = objects.find(o=>o.id===dragging.objId);
+  if(!obj) return;
+
+  if(dragging.kind==="point"){ obj.points[dragging.idx] = [p.x,p.y]; }
+  else if(dragging.kind==="center"){
+    const dx=p.x-obj.cx, dy=p.y-obj.cy; obj.cx=p.x; obj.cy=p.y;
+  }
+  else if(dragging.kind==="radius"){ obj.r = Math.max(4, Math.round(Math.hypot(p.x-obj.cx,p.y-obj.cy))); }
+  else if(dragging.kind==="p1"){ obj.x1=p.x; obj.y1=p.y; }
+  else if(dragging.kind==="p2"){ obj.x2=p.x; obj.y2=p.y; }
+
+  showCoordTip(e, p);
+  render();
+  if(selectedId===obj.id) fillPanel(obj);
+});
+svg.addEventListener("pointerup",()=>{ dragging=null; coordTip.style.display="none"; });
+svg.addEventListener("pointerleave",()=>{ dragging=null; coordTip.style.display="none"; });
+
+function showCoordTip(e,p){
+  coordTip.style.display="block";
+  coordTip.style.left = e.offsetX+"px";
+  coordTip.style.top = e.offsetY+"px";
+  coordTip.textContent = `x:${p.x}  y:${p.y}`;
+}
+
+/* ============================================================
+   3. 選択 & 右パネル
+   ============================================================ */
+const panelEmpty = document.getElementById("panel-empty");
+const panelContent = document.getElementById("panel-content");
+
+function selectObject(id){
+  selectedId = id;
+  const obj = objects.find(o=>o.id===id);
+  if(!obj){ deselect(); return; }
+  panelEmpty.style.display="none"; panelContent.style.display="block";
+  fillPanel(obj);
+  render();
+}
+function deselect(){
+  selectedId = null;
+  panelEmpty.style.display="block"; panelContent.style.display="none";
+  render();
+}
+svg.addEventListener("click",(e)=>{
+  if(drawMode){ handleDrawClick(e); return; }
+  if(e.target===svg || e.target.tagName==="rect"){ deselect(); }
+});
+
+function fillPanel(obj){
+  document.getElementById("p-title").textContent = obj.name || obj.id;
+  document.getElementById("p-id").value = obj.id;
+  document.getElementById("p-name").value = obj.name || "";
+  document.getElementById("p-status").value = obj.status || "none";
+
+  const coordsWrap = document.getElementById("p-coords");
+  coordsWrap.innerHTML = "";
+
+  if(obj.type==="polygon"){
+    const h3 = document.createElement("h3"); h3.className="section"; h3.textContent="頂点座標 (Type A: Polygon)";
+    coordsWrap.appendChild(h3);
+    obj.points.forEach((p,i)=>{
+      const row = document.createElement("div"); row.className="coord-row";
+      row.innerHTML = `<span class="idx">${i+1}</span>
+        <input type="number" value="${p[0]}" data-pt="${i}" data-axis="x">
+        <input type="number" value="${p[1]}" data-pt="${i}" data-axis="y">
+        <button class="rm" data-rm="${i}" title="この頂点を削除">×</button>`;
+      coordsWrap.appendChild(row);
+    });
+    const addBtn = document.createElement("button");
+    addBtn.className="add-point-btn"; addBtn.textContent="＋ 頂点を追加";
+    addBtn.onclick = ()=>{
+      const last = obj.points[obj.points.length-1];
+      obj.points.push([last[0]+20, last[1]+20]);
+      fillPanel(obj); render();
+    };
+    coordsWrap.appendChild(addBtn);
+
+    coordsWrap.querySelectorAll('[data-rm]').forEach(btn=>{
+      btn.addEventListener("click",()=>{
+        if(obj.points.length<=3){ alert("多角形には最低3つの頂点が必要です"); return; }
+        obj.points.splice(Number(btn.dataset.rm),1);
+        fillPanel(obj); render();
+      });
+    });
+  }
+  else if(obj.type==="circle"){
+    const h3 = document.createElement("h3"); h3.className="section"; h3.textContent="円座標 (Type B: Circle)";
+    coordsWrap.appendChild(h3);
+    coordsWrap.innerHTML += `
+      <div class="coord-row"><span class="idx">中心</span>
+        <input type="number" id="c-cx" value="${obj.cx}"><input type="number" id="c-cy" value="${obj.cy}"></div>
+      <div class="coord-row"><span class="idx">半径</span>
+        <input type="number" id="c-r" value="${obj.r}"><span></span></div>`;
+  }
+  else if(obj.type==="line"){
+    const h3 = document.createElement("h3"); h3.className="section"; h3.textContent="始点・終点 (Type C: Line)";
+    coordsWrap.appendChild(h3);
+    coordsWrap.innerHTML += `
+      <div class="coord-row"><span class="idx">始点</span>
+        <input type="number" id="l-x1" value="${obj.x1}"><input type="number" id="l-y1" value="${obj.y1}"></div>
+      <div class="coord-row"><span class="idx">終点</span>
+        <input type="number" id="l-x2" value="${obj.x2}"><input type="number" id="l-y2" value="${obj.y2}"></div>
+      <div class="coord-row"><span class="idx">太さ</span>
+        <input type="number" id="l-w" value="${obj.width}"><span></span></div>`;
+  }
+}
+
+document.getElementById("p-apply").addEventListener("click", ()=>{
+  const obj = objects.find(o=>o.id===selectedId);
+  if(!obj) return;
+  obj.name = document.getElementById("p-name").value;
+  obj.status = document.getElementById("p-status").value;
+
+  if(obj.type==="polygon"){
+    document.querySelectorAll('#p-coords input[data-pt]').forEach(inp=>{
+      const i = Number(inp.dataset.pt), axis = inp.dataset.axis;
+      obj.points[i][axis==="x"?0:1] = Number(inp.value);
+    });
+  } else if(obj.type==="circle"){
+    obj.cx = Number(document.getElementById("c-cx").value);
+    obj.cy = Number(document.getElementById("c-cy").value);
+    obj.r  = Math.max(4, Number(document.getElementById("c-r").value));
+  } else if(obj.type==="line"){
+    obj.x1 = Number(document.getElementById("l-x1").value);
+    obj.y1 = Number(document.getElementById("l-y1").value);
+    obj.x2 = Number(document.getElementById("l-x2").value);
+    obj.y2 = Number(document.getElementById("l-y2").value);
+    obj.width = Number(document.getElementById("l-w").value);
+  }
+  statusLeft.textContent = `「${obj.name}」を更新しました`;
+  render(); fillPanel(obj);
+});
+
+document.getElementById("p-delete").addEventListener("click", ()=>{
+  const obj = objects.find(o=>o.id===selectedId);
+  if(!obj) return;
+  if(!confirm(`「${obj.name}」を削除しますか？`)) return;
+  objects = objects.filter(o=>o.id!==selectedId);
+  deselect();
+});
+
+/* ---- オブジェクト一覧 ---- */
+function renderObjectList(){
+  [document.getElementById("obj-list"), document.getElementById("obj-list-empty")].forEach(list=>{
+    if(!list) return;
+    list.innerHTML = "";
+    objects.forEach(o=>{
+      const row = document.createElement("div");
+      row.className = "obj-list-item"+(o.id===selectedId?" active":"");
+      const tagLabel = o.type==="polygon"?"多角形":o.type==="circle"?"円":"線";
+      row.innerHTML = `<span class="tag ${o.type}">${tagLabel}</span><span style="flex:1">${o.name||o.id}</span>`;
+      row.addEventListener("click", ()=> selectObject(o.id));
+      list.appendChild(row);
+    });
+  });
+}
+
+/* ============================================================
+   4. 新規オブジェクトの追加（描画モード）
+   ============================================================ */
+const modeButtons = {
+  select: document.getElementById("mode-select"),
+  polygon: document.getElementById("mode-polygon"),
+  circle: document.getElementById("mode-circle"),
+  line: document.getElementById("mode-line"),
+  node: document.getElementById("mode-node"),
+  edge: document.getElementById("mode-edge"),
+};
+function setMode(m){
+  drawMode = m;
+  draft = { points:[], center:null };
+  edgeDraftFrom = null;
+  draftLayer.innerHTML = "";
+  Object.values(modeButtons).forEach(b=>b.classList.remove("active"));
+  svg.classList.toggle("drawing", !!m);
+  handlesLayer.innerHTML = "";
+  if(m==="polygon"){ modeButtons.polygon.classList.add("active"); hintText.textContent="クリックで頂点を追加 → ダブルクリックまたは Enter で確定 / Escで取消"; }
+  else if(m==="circle"){ modeButtons.circle.classList.add("active"); hintText.textContent="中心をクリック → もう一度クリックして半径を確定 / Escで取消"; }
+  else if(m==="line"){ modeButtons.line.classList.add("active"); hintText.textContent="始点をクリック → 終点をクリックして確定 / Escで取消"; }
+  else if(m==="node"){ modeButtons.node.classList.add("active"); hintText.textContent="地図上の位置をクリックしてノードを配置してください / Escで終了"; }
+  else if(m==="edge"){ modeButtons.edge.classList.add("active"); hintText.textContent="始点にするノードをクリックしてください"; }
+  else { modeButtons.select.classList.add("active"); hintText.textContent="オブジェクトをクリックして選択・編集できます"; }
+  render();
+}
+modeButtons.select.addEventListener("click", ()=>setMode(null));
+modeButtons.polygon.addEventListener("click", ()=>setMode("polygon"));
+modeButtons.circle.addEventListener("click", ()=>setMode("circle"));
+modeButtons.line.addEventListener("click", ()=>setMode("line"));
+modeButtons.node.addEventListener("click", ()=>setMode("node"));
+modeButtons.edge.addEventListener("click", ()=>setMode("edge"));
+setMode(null);
+
+function newId(prefix){ return prefix+"-"+String(nextIdNum++).padStart(3,"0"); }
+
+function handleDrawClick(e){
+  const p = toSvgPoint(e);
+
+  if(drawMode==="polygon"){
+    draft.points.push([p.x,p.y]);
+    drawDraftPolygon();
+  }
+  else if(drawMode==="circle"){
+    if(!draft.center){ draft.center=[p.x,p.y]; drawDraftCircle(p); }
+    else{
+      const r = Math.max(4, Math.round(Math.hypot(p.x-draft.center[0], p.y-draft.center[1])));
+      objects.push({id:newId("eq"), type:"circle", name:"新規オブジェクト", status:"none", cx:draft.center[0], cy:draft.center[1], r});
+      finishDraw();
+    }
+  }
+  else if(drawMode==="line"){
+    if(!draft.center){ draft.center=[p.x,p.y]; }
+    else{
+      objects.push({id:newId("path"), type:"line", name:"新規ライン", status:"none", x1:draft.center[0], y1:draft.center[1], x2:p.x, y2:p.y, width:5});
+      finishDraw();
+    }
+  }
+  else if(drawMode==="node"){
+    nodes.push({ id:"n"+(nextNodeNum++), x:p.x, y:p.y });
+    render();
+    statusLeft.textContent = "ノードを追加しました";
+  }
+}
+
+svg.addEventListener("mousemove",(e)=>{
+  if(!drawMode) return;
+  const p = toSvgPoint(e);
+  if(drawMode==="polygon" && draft.points.length) drawDraftPolygon(p);
+  if(drawMode==="circle" && draft.center) drawDraftCircle(p);
+  if(drawMode==="line" && draft.center) drawDraftLine(p);
+});
+
+function drawDraftPolygon(previewPt){
+  draftLayer.innerHTML = "";
+  const pts = previewPt ? [...draft.points, [previewPt.x,previewPt.y]] : draft.points;
+  if(pts.length>1){
+    const pl = document.createElementNS(svgNS,"polyline");
+    pl.setAttribute("points", pts.map(p=>p.join(",")).join(" "));
+    pl.setAttribute("class","draft-line");
+    draftLayer.appendChild(pl);
+  }
+  draft.points.forEach(p=>{
+    const c = document.createElementNS(svgNS,"circle");
+    c.setAttribute("cx",p[0]); c.setAttribute("cy",p[1]); c.setAttribute("r",5);
+    c.setAttribute("class","draft-point");
+    draftLayer.appendChild(c);
+  });
+}
+function drawDraftCircle(p){
+  draftLayer.innerHTML = "";
+  const r = Math.max(2, Math.hypot(p.x-draft.center[0], p.y-draft.center[1]));
+  const c = document.createElementNS(svgNS,"circle");
+  c.setAttribute("cx",draft.center[0]); c.setAttribute("cy",draft.center[1]); c.setAttribute("r",r);
+  c.setAttribute("class","draft-line");
+  draftLayer.appendChild(c);
+}
+function drawDraftLine(p){
+  draftLayer.innerHTML = "";
+  const l = document.createElementNS(svgNS,"line");
+  l.setAttribute("x1",draft.center[0]); l.setAttribute("y1",draft.center[1]);
+  l.setAttribute("x2",p.x); l.setAttribute("y2",p.y);
+  l.setAttribute("class","draft-line");
+  draftLayer.appendChild(l);
+}
+
+svg.addEventListener("dblclick",(e)=>{
+  if(drawMode==="polygon" && draft.points.length>=3){
+    objects.push({id:newId("bld"), type:"polygon", name:"新規オブジェクト", status:"none", points:draft.points});
+    finishDraw();
+  }
+});
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="Escape"){ setMode(null); }
+  if(e.key==="Enter" && drawMode==="polygon" && draft.points.length>=3){
+    objects.push({id:newId("bld"), type:"polygon", name:"新規オブジェクト", status:"none", points:draft.points});
+    finishDraw();
+  }
+});
+function finishDraw(){
+  const newObj = objects[objects.length-1];
+  setMode(null);
+  render();
+  selectObject(newObj.id);
+  statusLeft.textContent = `「${newObj.name}」を追加しました。名前を編集してください。`;
+}
+
+/* ============================================================
+   5. 書き出し & 保存（Google Apps Script連携ひな形）
+   ============================================================ */
+document.getElementById("btn-export").addEventListener("click", ()=>{
+  const blob = new Blob([JSON.stringify(objects, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "factory-map-objects.json"; a.click();
+  URL.revokeObjectURL(url);
+  statusLeft.textContent = "JSONを書き出しました";
+});
+
+const GAS_ENDPOINT = ""; 
+
+document.getElementById("btn-save").addEventListener("click", async ()=>{
+  if(!GAS_ENDPOINT){
+    alert("保存先が未設定です。\nコード内の GAS_ENDPOINT に、Google Apps Scriptのウェブアプリ公開URLを設定してください。");
+    return;
+  }
+  try{
+    statusLeft.textContent = "保存中…";
+    await fetch(GAS_ENDPOINT, {
+      method:"POST",
+      headers:{"Content-Type":"text/plain"}, 
+      body: JSON.stringify(objects),
+    });
+    statusLeft.textContent = "スプレッドシートへ送信しました";
+  }catch(err){
+    console.error(err);
+    statusLeft.textContent = "送信に失敗しました（コンソールを確認してください）";
+  }
+});
+
+render();
+</script>
 </body>
 </html>
