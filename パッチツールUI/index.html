@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>コード修正＆一括アップロードツール</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; background-color: #f8f9fa; color: #333; }
+    .section-box { background: #fff; padding: 15px 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .form-group { margin-bottom: 12px; }
+    label { display: block; font-weight: bold; margin-bottom: 5px; }
+    input[type="text"], textarea { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    
+    /* 画面最上部に固定する通知トースト（スクロール不要化） */
+    .toast-container { position: fixed; top: 15px; right: 15px; z-index: 9999; }
+    .toast { padding: 12px 20px; background-color: #28a745; color: #fff; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); font-weight: bold; display: flex; align-items: center; gap: 10px; }
+    .toast.error { background-color: #dc3545; }
+    .toast.hidden { display: none; }
+    .toast button { background: transparent; border: none; color: #fff; font-size: 16px; cursor: pointer; }
+
+    /* 詳細設定の折りたたみ（デフォルト非表示） */
+    #advanced-symbol-search { margin-top: 10px; font-size: 0.85rem; color: #555; }
+    
+    /* レスキュー介入ボックス */
+    .rescue-box { background-color: #fff3cd; border: 1px solid #ffeeba; padding: 15px; border-radius: 6px; margin-top: 10px; }
+    .rescue-box.hidden { display: none; }
+    .alert-text { color: #856404; font-weight: bold; margin-top: 0; }
+    
+    .btn-primary { background-color: #007bff; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+    .btn-secondary { background-color: #6c757d; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; }
+    .btn-primary:hover { background-color: #0069d9; }
+  </style>
+</head>
+<body>
+
+  <!-- 上部固定通知トースト -->
+  <div class="toast-container">
+    <div id="status-toast" class="toast hidden">
+      <span id="toast-message"></span>
+      <button onclick="closeToast()">✕</button>
+    </div>
+  </div>
+
+  <!-- STEP A: FETCH 検索 -->
+  <div id="fetch-section" class="section-box">
+    <h3>STEP A: AIへのコード検索（FETCH）</h3>
+    <div class="form-group">
+      <label for="fetch-keyword">検索キーワード / 対象機能</label>
+      <input type="text" id="fetch-keyword" placeholder="例: SharePointアップロード処理">
+    </div>
+
+    <!-- 通常使わないシンボル検索（折りたたみ化） -->
+    <details id="advanced-symbol-search">
+      <summary>詳細なシンボル検索オプション（通常は使用しません）</summary>
+      <div class="details-content" style="margin-top:8px;">
+        <input type="text" id="symbol-name" placeholder="シンボル名（関数・クラス）" style="margin-bottom: 5px;">
+        <input type="text" id="file-path-filter" placeholder="特定ファイルパス">
+      </div>
+    </details>
+  </div>
+
+  <!-- 自動リトライ・状況管理パネル -->
+  <div id="loop-control-panel" class="section-box">
+    <h3>自動リトライ・修正状況</h3>
+    <div>
+      <p>試行回数: <span id="loop-count">0</span> / 4</p>
+      <p>ステータス: <span id="loop-state-text">待機中</span></p>
+    </div>
+
+    <!-- レスキュー介入領域 -->
+    <div id="rescue-action-box" class="rescue-box hidden">
+      <p class="alert-text">⚠️ 修正が自動完了しませんでした。フォルダ設定または対象ファイルが存在するか確認してください。</p>
+      <button onclick="resetLoopContext()" class="btn-secondary">会話履歴をリセットして再試行</button>
+      <button onclick="openFolderSelector()" class="btn-primary">プロジェクトフォルダを再選択</button>
+    </div>
+  </div>
+
+  <!-- SharePoint 一括アップロード画面 -->
+  <div id="sharepoint-section" class="section-box">
+    <h3>SharePoint アップロード（固定設定パス）</h3>
+    <div class="form-group">
+      <label>送信先フォルダ（固定設定）</label>
+      <input type="text" id="sp-folder-path" value="/sites/ProjectDocs/Shared Documents/TargetFolder" readonly style="background:#e9ecef;">
+    </div>
+    <div class="form-group">
+      <label><input type="checkbox" id="select-all-files" onchange="toggleSelectAllFiles(this)"> 修正対象・変更ファイルをすべて選択</label>
+    </div>
+    <button onclick="uploadSelectedFiles()" class="btn-primary">一括アップロード実行</button>
+  </div>
+
+  <script>
+    const LOOP_CONFIG = { maxRetries: 4, currentCount: 0, consecutiveErrors: 0 };
+
+    // パッチ適用実行と判定処理
+    async function applyPatchProcess(patchData) {
+      document.getElementById("loop-state-text").innerText = "ファイル検証中...";
+      
+      // バックエンドへ送信して検証＆適用
+      const response = await fetch('/api/apply_patch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patchData)
+      });
+      const result = await response.json();
+
+      if (result.status === 'FILE_NOT_FOUND') {
+        showToast("エラー: 対象ファイルが存在しません。フォルダパスを確認してください。", true);
+        triggerRescueUI();
+        return;
+      }
+
+      if (result.status === 'SUCCESS') {
+        showToast("✅ パッチの適用が正常に完了しました！");
+        document.getElementById("loop-state-text").innerText = "完了";
+        resetLoopState();
+      } else {
+        handleLoopRetry(result.message);
+      }
+    }
+
+    // リトライ判定・自動送信
+    async function handleLoopRetry(errorMessage) {
+      LOOP_CONFIG.currentCount++;
+      LOOP_CONFIG.consecutiveErrors++;
+      document.getElementById("loop-count").innerText = LOOP_CONFIG.currentCount;
+
+      if (LOOP_CONFIG.currentCount >= LOOP_CONFIG.maxRetries) {
+        showToast("規定の試行回数（4回）に達したため停止しました。", true);
+        triggerRescueUI();
+        return;
+      }
+
+      let payload = {
+        retry_count: LOOP_CONFIG.currentCount,
+        error_message: errorMessage,
+        reset_context: LOOP_CONFIG.consecutiveErrors >= 2
+      };
+
+      document.getElementById("loop-state-text").innerText = `AIへ再試行要求中... (${LOOP_CONFIG.currentCount}回目)`;
+
+      const response = await fetch('/api/generate_fallback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      console.log("AI再提案データ:", data);
+    }
+
+    // 通知トースト表示（最上部に固定表示・スクロール不要）
+    function showToast(message, isError = false) {
+      const toast = document.getElementById("status-toast");
+      document.getElementById("toast-message").innerText = message;
+      toast.className = isError ? "toast error" : "toast";
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function closeToast() {
+      document.getElementById("status-toast").classList.add("hidden");
+    }
+
+    function triggerRescueUI() {
+      document.getElementById("rescue-action-box").classList.remove("hidden");
+      document.getElementById("loop-state-text").innerText = "中断（ユーザー確認待ち）";
+    }
+
+    function resetLoopContext() {
+      LOOP_CONFIG.currentCount = 0;
+      LOOP_CONFIG.consecutiveErrors = 0;
+      document.getElementById("loop-count").innerText = "0";
+      document.getElementById("rescue-action-box").classList.add("hidden");
+      document.getElementById("loop-state-text").innerText = "待機中";
+      showToast("履歴をリセットしました。再度検索を実行してください。");
+    }
+
+    function toggleSelectAllFiles(masterCheckbox) {
+      const checkboxes = document.querySelectorAll('.file-checkbox');
+      checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+    }
+
+    function openFolderSelector() {
+      alert("フォルダ選択ダイアログを起動します（バックエンド連携）");
+    }
+
+    function uploadSelectedFiles() {
+      showToast("SharePointの固定フォルダへ一括アップロードを開始しました。");
+    }
+  </script>
+</body>
+</html>
